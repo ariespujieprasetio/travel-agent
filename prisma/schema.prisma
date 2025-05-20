@@ -1,0 +1,74 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Add isAdmin field to User model
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String?
+  isAdmin       Boolean        @default(false)  // Add this line
+  roles         Json?          // Add this line for role-based auth
+  permissions   Json?          // Add this line for feature permissions
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  chatSessions  ChatSession[]
+}
+
+// Add SystemLog model for logging
+model SystemLog {
+  id            String         @id @default(uuid())
+  level         String         // info, warning, error
+  message       String
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+}
+
+// Add SystemConfig model for configuration
+model SystemConfig {
+  id            String         @id @default(uuid())
+  key           String         @unique
+  value         String
+  description   String?
+  updatedAt     DateTime       @updatedAt
+}
+
+model ChatSession {
+  id            String         @id @default(uuid())
+  userId        String       
+  title         String         @default("Plan your trip")
+  tagline       String         @default("Explore new destination")
+  save          Boolean        @default(true)  // New field: Flag to indicate whether to save this session
+  user          User           @relation(fields: [userId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  messages      Message[]
+}
+
+model Message {
+  id            String         @id @default(uuid())
+  sessionId     String
+  chatSession   ChatSession    @relation(fields: [sessionId], references: [id])
+  role          String         // "user", "assistant", "system", "tool"
+  content       String         @db.Text
+  toolCalls     Json?          // For storing OpenAI tool calls
+  toolCallId    String?        // For storing tool call ID for responses
+  createdAt     DateTime       @default(now())
+}
+
+// Add this new model to your existing schema
+model IpWhitelist {
+  id        String   @id @default(uuid())
+  ipAddress String   @unique
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  active    Boolean  @default(true)
+}

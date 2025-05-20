@@ -1,0 +1,26 @@
+Day,Sequential Order,Destination,Time,Activity,Location,Address,Activity Duration (mins),Estimated Travel Time (mins),Note
+1,1,Airport,08:00,Arrival at Ngurah Rai International Airport,Denpasar,Jl. Raya Gusti Ngurah Rai,0,0,Start of the trip
+1,2,The Anvaya Beach Resort Bali,09:00,Check-in and relax,Kuta,Jl. Kartika Plaza, Tuban, Kec. Kuta, Kabupaten Badung, Bali 80361, Indonesia,120,15,Enjoy the resort's amenities
+1,3,Tanah Lot,12:00,Visit Tanah Lot Temple,Tabanan,Beraban, Kediri, Tabanan Regency, Bali 82121, Indonesia,90,60,Iconic sea temple
+1,4,Sacred Monkey Forest Sanctuary,15:00,Explore the Monkey Forest,Ubud,Jl. Monkey Forest, Ubud, Kecamatan Ubud, Kabupaten Gianyar, Bali 80571, Indonesia,90,60,Experience nature and wildlife
+1,5,Dinner at Halal Restaurant,18:00,Enjoy a halal dinner,Ubud,,90,15,Savor local flavors
+2,1,Jatiluwih Rice Terraces,09:00,Visit the rice terraces,Tabanan,Jl. Jatiluwih Kawan, Jatiluwih, Kec. Penebel, Kabupaten Tabanan, Bali 82152, Indonesia,120,90,UNESCO World Heritage site
+2,2,Ulun Danu Beratan Temple,12:00,Explore the temple,Bedugul,Danau Beratan, Candikuning, Kec. Baturiti, Kabupaten Tabanan, Bali 82191, Indonesia,90,60,Scenic lakeside temple
+2,3,Pura Tirta Empul,15:00,Visit the holy spring temple,Tampaksiring,Tampaksiring, Gianyar Regency, Bali 80552, Indonesia,90,60,Spiritual cleansing
+2,4,Sangeh Monkey Forest,17:00,Explore the forest,Abiansemal,Jl. Brahmana, Sangeh, Kec. Abiansemal, Kabupaten Badung, Bali 80353, Indonesia,60,30,Home to many monkeys
+2,5,Dinner at Halal Restaurant,19:00,Enjoy a halal dinner,Seminyak,,90,45,Relax and dine
+3,1,SEKUMPUL WATERFALL OFFICIAL (POST 1),09:00,Visit the waterfall,Singaraja,Jalan Air Terjun Desa Sekumpul Kecamatan Sawan Kabupaten Buleleng, Sekumpul, Kec. Sawan, Kota Singaraja, Bali 81171, Indonesia,120,120,Stunning natural beauty
+3,2,Aling-Aling Waterfall,12:00,Explore the waterfall,Sambangan,Sambangan, Kec. Sukasada, Kabupaten Buleleng, Bali 81161, Indonesia,90,30,Adventure and fun
+3,3,Banyumala Twin Waterfalls,14:00,Visit the twin waterfalls,Wanagiri,Wanagiri, Sukasada, Buleleng Regency, Bali 81161, Indonesia,90,30,Picturesque setting
+3,4,Upside Down World Bali,16:00,Experience the unique attraction,Denpasar,Jl. Bypass Ngurah Rai No.762, Pemogan, Denpasar Selatan, Kota Denpasar, Bali 80221, Indonesia,60,90,Fun photo opportunities
+3,5,Dinner at Halal Restaurant,18:00,Enjoy a halal dinner,Kuta,,90,30,End the day with a meal
+4,1,Besakih Great Temple,09:00,Visit the largest temple,Karangasem,Besakih, Kec. Rendang, Kabupaten Karangasem, Bali 80863, Indonesia,120,90,Mother Temple of Bali
+4,2,Bali Zoo,12:00,Explore the zoo,Gianyar,Jl. Raya Singapadu, Singapadu, Kec. Sukawati, Kabupaten Gianyar, Bali 80582, Indonesia,120,60,Wildlife experience
+4,3,Gitgit Waterfall,15:00,Visit the waterfall,Buleleng,Jl. Raya Bedugul - Singaraja, Gitgit, Kec. Sukasada, Kabupaten Buleleng, Bali 81161, Indonesia,90,60,Scenic beauty
+4,4,Big Garden Corner,17:00,Explore the garden,Denpasar,Sanur, Jl. Bypass Ngurah Rai, Kesiman, Denpasar Selatan, Kota Denpasar, Bali 80237, Indonesia,60,60,Art and sculptures
+4,5,Dinner at Halal Restaurant,19:00,Enjoy a halal dinner,Sanur,,90,30,Relax and dine
+5,1,Uluwatu Temple,09:00,Visit the cliffside temple,Pecatu,Pecatu, South Kuta, Badung Regency, Bali, Indonesia,90,60,Spectacular views
+5,2,Pantai Wates Karangasem,11:00,Relax at the beach,Karangasem,CFXJ+Q2P, Antiga Kelod, Manggis, Karangasem Regency, Bali 80761, Indonesia,120,60,Beach time
+5,3,Goa Rang Reng Waterfall,14:00,Visit the waterfall,Gianyar,Jl. Goa Jl. Rang Reng, Bakbakan, Kec. Gianyar, Kabupaten Gianyar, Bali 80515, Indonesia,90,60,Natural beauty
+5,4,Taman Anyar - Traditional Balinese House,16:00,Experience Balinese culture,Mengwi,Jl. Banjar Umahanyar, Penarungan, Kec. Mengwi, Kabupaten Badung, Bali 80352, Indonesia,90,60,Cultural insight
+5,5,Airport,19:00,Departure from Ngurah Rai International Airport,Denpasar,Jl. Raya Gusti Ngurah Rai,0,60,End of the trip
