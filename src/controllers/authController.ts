@@ -1,6 +1,70 @@
 import { Request, Response } from "express";
 import * as authService from "../services/authService";
 import { AuthRequest } from "../middleware/auth";
+import { OAuth2Client } from 'google-auth-library';
+import jwt from 'jsonwebtoken';
+import prisma from '../utils/prisma';
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID); // Gantilah dengan Client ID Google Anda
+
+// Fungsi untuk menangani autentikasi Google
+export const handleGoogleAuth = async (req: Request, res: Response): Promise<void> => {
+  const token = req.query.token as string;
+const action = req.query.action as string;  // 'login' or 'register'
+
+  if (!token) {
+    res.status(400).json({ message: 'Token not provided' });
+    return;
+  }
+
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email || !payload.name) {
+      res.status(400).json({ message: 'Invalid token payload' });
+      return;
+    }
+
+    let user = await prisma.user.findUnique({
+      where: { email: payload.email },
+    });
+
+    if (!user) {
+      // You don't need to hash a password here if you're using Google login only
+      user = await prisma.user.create({
+        data: {
+          name: payload.name,
+          email: payload.email,
+          password: '', // Optional, can leave as empty string if not using password
+        },
+      });
+    }
+
+    const authToken = jwt.sign(
+      { userId: user.id, email: user.email },
+      'q7Y2d3$eK1r@PqW!LxA0VsN5BmUzT8Jh',
+      { expiresIn: '7h' }
+    );
+
+    res.json({
+      success: true,
+      message: 'User authenticated successfully',
+      token: authToken,
+      user: {
+        name: user.name,
+        email: user.email,
+      },
+    });
+
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    res.status(400).json({ message: 'Invalid token' });
+  }
+};
 
 /**
  * Login a user
