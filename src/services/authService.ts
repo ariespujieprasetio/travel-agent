@@ -1,7 +1,56 @@
 import bcrypt from "bcrypt";
 import prisma from "../models/prisma";
 import { generateToken } from "../utils/jwt";
+import { OAuth2Client } from 'google-auth-library';
 
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+export async function authenticateWithGoogle(idToken: string) {
+  const ticket = await client.verifyIdToken({
+    idToken,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  const payload = ticket.getPayload();
+
+  if (!payload || !payload.email || !payload.name) {
+    throw new Error("Invalid token payload");
+  }
+
+  // Cek apakah user sudah ada
+  let user = await prisma.user.findUnique({
+    where: { email: payload.email },
+  });
+
+  // Kalau belum ada, artinya register
+  const isNewUser = !user;
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        name: payload.name,
+        email: payload.email,
+        password: '', // Kosong karena OAuth
+      },
+    });
+  }
+
+  // Buat JWT token
+  const token = generateToken({
+    userId: user.id,
+    email: user.email,
+  }, isNewUser); // Kalau baru register, gunakan expire panjang
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    },
+    token,
+  };
+}
 
 // Update loginUser function to accept rememberMe parameter
 export async function loginUser(email: string, password: string, rememberMe: boolean = false) {

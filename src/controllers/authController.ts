@@ -1,71 +1,30 @@
+//authController.ts
+
 import { Request, Response } from "express";
 import * as authService from "../services/authService";
 import { AuthRequest } from "../middleware/auth";
-import { OAuth2Client } from 'google-auth-library';
-import { generateToken } from '../utils/jwt';  
-import prisma from '../utils/prisma';
 
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID); // Gantilah dengan Client ID Google Anda
 
 // Fungsi untuk menangani autentikasi Google
-export const handleGoogleAuth = async (req: Request, res: Response): Promise<void> => {
-  const token = req.query.token as string;
-  const action = req.query.action as string;  // 'login' or 'register'
+export const handleGoogleAuth = async (req: Request, res: Response) => {
+  const { idToken } = req.body;
 
-  if (!token) {
+  if (!idToken) {
     res.status(400).json({ message: 'Token not provided' });
     return;
   }
 
   try {
-    // Verifikasi ID token menggunakan OAuth2Client
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    const result = await authService.authenticateWithGoogle(idToken);
 
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email || !payload.name) {
-      res.status(400).json({ message: 'Invalid token payload' });
-      return;
-    }
-
-    // Cek apakah user sudah ada di database berdasarkan email
-    let user = await prisma.user.findUnique({
-      where: { email: payload.email },
-    });
-
-    if (!user) {
-      // Jika user belum ada, buat user baru
-      user = await prisma.user.create({
-        data: {
-          name: payload.name,
-          email: payload.email,
-          password: '', // Tidak perlu password jika login menggunakan Google
-        },
-      });
-    }
-
-    // Generate token menggunakan fungsi generateToken dari utils/jwt
-    const authToken = generateToken(
-      { userId: user.id, email: user.email },
-      action === 'register' // Jika action adalah register, beri waktu expired yang lebih lama
-    );
-
-    // Respons dengan token dan data user
-    res.json({
+    res.status(200).json({
       success: true,
       message: 'User authenticated successfully',
-      token: authToken,
-      user: {
-        name: user.name,
-        email: user.email,
-      },
+      ...result,
     });
-
-  } catch (error) {
-    console.error('Token verification failed:', error);
-    res.status(400).json({ message: 'Invalid token' });
+  } catch (error: any) {
+    console.error('Google Auth Error:', error);
+    res.status(400).json({ message: error.message || 'Authentication failed' });
   }
 };
 
