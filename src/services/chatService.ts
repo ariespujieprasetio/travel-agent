@@ -309,6 +309,7 @@ export async function processMessage(
                           tool_call_id: toolId,
                         });
                       }
+                      break; 
 
 
                     case "find_travel_destinations":
@@ -328,18 +329,18 @@ export async function processMessage(
                       });
                       break;
                       case "search_flights":
-  const flights = await travelService.search_flights(
-    data.origin,
-    data.destination,
-    data.departDate,
-    data.returnDate // opsional
-  );
-  toolsCalls.push({
-    role: "tool",
-    content: JSON.stringify(flights),
-    tool_call_id: toolId,
-  });
-  break;
+                      const flights = await travelService.search_flights(
+                        data.origin,
+                        data.destination,
+                        data.departDate,
+                        data.returnDate // opsional
+                      );
+                      toolsCalls.push({
+                        role: "tool",
+                        content: JSON.stringify(flights),
+                        tool_call_id: toolId,
+                      });
+                      break;
                     case "find_hotels":
                       const hotels = await placesService.findHotels(data.city, data.stars, data.nearCBD);
                       toolsCalls.push({

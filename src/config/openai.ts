@@ -3,19 +3,13 @@ import { config } from "./env";
 import { ChatCompletionTool } from "openai/resources";
 import * as fs from "fs";
 import path from "path";
-import {
-  find_hotels_new,
-  find_top_rated_hotels_new,
-  find_car_rentals,
-  search_flights,
-} from "./travelpayouts";
 
 // Initialize OpenAI client
 export const openai = new OpenAI({
   apiKey: config.openai.apiKey,
 });
 
-// Define the OpenAI tools
+// Define the tools
 export const tools: ChatCompletionTool[] = [
   {
     type: "function",
@@ -60,7 +54,8 @@ export const tools: ChatCompletionTool[] = [
       }
     }
   },
-{
+
+  {
     type: "function",
     function: {
       name: "find_hotels",
@@ -77,6 +72,7 @@ export const tools: ChatCompletionTool[] = [
       }
     }
   },
+
   {
     type: "function",
     function: {
@@ -94,6 +90,7 @@ export const tools: ChatCompletionTool[] = [
       }
     }
   },
+
   {
     type: "function",
     function: {
@@ -110,24 +107,38 @@ export const tools: ChatCompletionTool[] = [
       }
     }
   },
+
   {
     type: "function",
     function: {
       name: "search_flights",
-      description: "Search for cheap flights between two locations",
+      description: "Search available flights between two locations for given dates",
       parameters: {
         type: "object",
         properties: {
-          origin: { type: "string" },
-          destination: { type: "string" },
-          departDate: { type: "string" },
-          returnDate: { type: "string" }
+          origin: {
+            type: "string",
+            description: "City or airport code for departure (e.g., 'Yogyakarta' or 'JOG')"
+          },
+          destination: {
+            type: "string",
+            description: "City or airport code for arrival (e.g., 'Bali' or 'DPS')"
+          },
+          departDate: {
+            type: "string",
+            description: "Departure date in YYYY-MM-DD format"
+          },
+          returnDate: {
+            type: "string",
+            description: "Return date in YYYY-MM-DD format (optional)"
+          }
         },
         required: ["origin", "destination", "departDate"],
         additionalProperties: false
       }
     }
   },
+
   {
     type: "function",
     function: {
@@ -136,25 +147,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          cuisine: {
-            type: "string",
-            description: "Type of cuisine, e.g., 'Indonesian', 'Italian', 'Seafood'",
-          },
-          count: {
-            type: "number",
-            description: "Number of restaurants to find",
-            default: 3
-          }
+          city: { type: "string" },
+          cuisine: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "cuisine"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -163,25 +165,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          type: {
-            type: "string",
-            description: "Type of venue, e.g., 'bar', 'night club', 'lounge'",
-          },
-          count: {
-            type: "number",
-            description: "Number of venues to find",
-            default: 3
-          }
+          city: { type: "string" },
+          type: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "type"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -190,25 +183,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          type: {
-            type: "string",
-            description: "Type of meeting venue, e.g., 'conference center', 'meeting room', 'co-working space'",
-          },
-          count: {
-            type: "number",
-            description: "Number of venues to find",
-            default: 3
-          }
+          city: { type: "string" },
+          type: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "type"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -217,25 +201,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          cuisine: {
-            type: "string",
-            description: "Type of cuisine, e.g., 'Indonesian', 'Italian', 'Seafood'",
-          },
-          count: {
-            type: "number",
-            description: "Number of restaurants to find",
-            default: 3
-          }
+          city: { type: "string" },
+          cuisine: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "cuisine"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -244,25 +219,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          type: {
-            type: "string",
-            description: "Type of meeting venue, e.g., 'conference center', 'meeting room', 'co-working space'",
-          },
-          count: {
-            type: "number",
-            description: "Number of venues to find",
-            default: 3
-          }
+          city: { type: "string" },
+          type: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "type"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -271,24 +237,17 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          count: {
-            type: "number",
-            description: "Number of attractions to find",
-            default: 5
-          }
+          city: { type: "string" },
+          count: { type: "number", default: 5 }
         },
         required: ["city"],
-        additionalProperties: false,
-      },
-    },
-  },
+        additionalProperties: false
+      }
+    }
+  }
 ];
 
-// Read system prompt from file
+// System prompt loader
 export function getSystemPrompt(): string {
   try {
     const content = fs.readFileSync(path.join(process.cwd(), 'sys-new.txt'), 'utf-8');
