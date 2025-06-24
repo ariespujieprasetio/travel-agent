@@ -3,6 +3,12 @@ import { config } from "./env";
 import { ChatCompletionTool } from "openai/resources";
 import * as fs from "fs";
 import path from "path";
+import {
+  find_hotels_new,
+  find_top_rated_hotels_new,
+  find_car_rentals,
+  search_flights,
+} from "./travelpayouts";
 
 // Initialize OpenAI client
 export const openai = new OpenAI({
@@ -54,51 +60,7 @@ export const tools: ChatCompletionTool[] = [
       }
     }
   },
-  {
-    type: "function",
-    function: {
-      name: "find_travel_destinations",
-      description: "Find tourist attractions in a city",
-      parameters: {
-        type: "object",
-        properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          count: {
-            type: "number",
-            description: "Number of destinations needed to generate itinerary",
-          },
-        },
-        required: ["city", "count"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "find_car_rentals",
-      "description": "Identify available vehicle rental services within a specified geographic location",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {
-            "type": "string",
-            "description": "Target geographic location specification (city and country format), e.g., 'Bali, Indonesia'"
-          },
-          "count": {
-            "type": "number",
-            "description": "Quantity parameter specifying the maximum number of rental service providers to retrieve"
-          }
-        },
-        "required": ["city", "count"],
-        "additionalProperties": false
-      }
-    }
-  },
-  {
+{
     type: "function",
     function: {
       name: "find_hotels",
@@ -106,23 +68,65 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          stars: {
-            type: "number",
-            description: "Minimum number of stars for hotels",
-          },
-          nearCBD: {
-            type: "boolean",
-            description: "Whether to find hotels near Central Business District",
-          },
+          city: { type: "string" },
+          stars: { type: "number" },
+          nearCBD: { type: "boolean" }
         },
         required: ["city", "stars", "nearCBD"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_top_rated_hotels_new",
+      description: "Find top-rated hotels in a city based on minimum star rating",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string" },
+          stars: { type: "number" },
+          count: { type: "number", default: 3 }
+        },
+        required: ["city", "stars"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_car_rentals",
+      description: "Identify available vehicle rental services within a specified geographic location",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string" },
+          count: { type: "number" }
+        },
+        required: ["city", "count"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_flights",
+      description: "Search for cheap flights between two locations",
+      parameters: {
+        type: "object",
+        properties: {
+          origin: { type: "string" },
+          destination: { type: "string" },
+          departDate: { type: "string" },
+          returnDate: { type: "string" }
+        },
+        required: ["origin", "destination", "departDate"],
+        additionalProperties: false
+      }
+    }
   },
   {
     type: "function",
@@ -201,33 +205,6 @@ export const tools: ChatCompletionTool[] = [
           }
         },
         required: ["city", "type"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "find_top_rated_hotels",
-      description: "Find top-rated hotels in a city based on minimum star rating",
-      parameters: {
-        type: "object",
-        properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          stars: {
-            type: "number",
-            description: "Minimum number of stars for hotels",
-          },
-          count: {
-            type: "number",
-            description: "Number of hotels to find",
-            default: 3
-          }
-        },
-        required: ["city", "stars"],
         additionalProperties: false,
       },
     },
@@ -314,9 +291,11 @@ export const tools: ChatCompletionTool[] = [
 // Read system prompt from file
 export function getSystemPrompt(): string {
   try {
-    return fs.readFileSync(path.join(process.cwd(), 'sys-new.txt'), 'utf-8');
+    const content = fs.readFileSync(path.join(process.cwd(), 'sys-new.txt'), 'utf-8');
+    const match = content.match(/# USER_PROMPT_TEMPLATE([\s\S]*)/);
+    return match ? match[1].trim() : "Welcome! Let's start planning your trip.";
   } catch (error) {
-    console.error("Error reading system prompt file:", error);
-    return "You are a helpful travel assistant.";
+    console.error("Error reading user prompt template:", error);
+    return "Welcome! Let's start planning your trip.";
   }
 }

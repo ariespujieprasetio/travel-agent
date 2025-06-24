@@ -5,6 +5,7 @@ import * as placesService from "./googlePlacesService";
 import { Prisma } from "@prisma/client";
 import { generateSessionTitle } from "./titleGeneratorService";
 import { TravelMode } from "@googlemaps/google-maps-services-js";
+import * as travelService from "../config/travelpayouts";
 
 /**
  * Save a message to the database
@@ -326,6 +327,19 @@ export async function processMessage(
                         tool_call_id: toolId,
                       });
                       break;
+                      case "search_flights":
+  const flights = await travelService.search_flights(
+    data.origin,
+    data.destination,
+    data.departDate,
+    data.returnDate // opsional
+  );
+  toolsCalls.push({
+    role: "tool",
+    content: JSON.stringify(flights),
+    tool_call_id: toolId,
+  });
+  break;
                     case "find_hotels":
                       const hotels = await placesService.findHotels(data.city, data.stars, data.nearCBD);
                       toolsCalls.push({
