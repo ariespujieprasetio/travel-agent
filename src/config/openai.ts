@@ -314,9 +314,11 @@ export const tools: ChatCompletionTool[] = [
 // Read system prompt from file
 export function getSystemPrompt(): string {
   try {
-    return fs.readFileSync(path.join(process.cwd(), 'sys-new.txt'), 'utf-8');
+    const content = fs.readFileSync(path.join(process.cwd(), 'sys-new.txt'), 'utf-8');
+    const match = content.match(/# USER_PROMPT_TEMPLATE([\s\S]*)/);
+    return match ? match[1].trim() : "Welcome! Let's start planning your trip.";
   } catch (error) {
-    console.error("Error reading system prompt file:", error);
-    return "You are a helpful travel assistant.";
-  }
+    console.error("Error reading user prompt template:", error);
+    return "Welcome! Let's start planning your trip.";
+  }
 }

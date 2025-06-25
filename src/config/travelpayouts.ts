@@ -8,6 +8,7 @@
 
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import axios from "axios";
 
 dotenv.config();
 
@@ -49,47 +50,40 @@ function dateOffset(days = 30) {
 //--------------------------------------------------------------
 // 1) HOTEL SEARCH (HotelLook)
 //--------------------------------------------------------------
-export async function find_hotels_new(
+export async function findHotelsWithPrice(
   city: string,
-  stars: number,
-  checkIn: string = dateOffset(30),
-  checkOut: string = dateOffset(32),
-  adults = 2,
-  limit = 5
-): Promise<Hotel[]> {
-  const qs = new URLSearchParams();
-  qs.append("location", city);
-  qs.append("checkIn", checkIn);
-  qs.append("checkOut", checkOut);
-  qs.append("adults", adults.toString());
-  qs.append("stars", stars.toString());
-  qs.append("currency", "usd");
-  if (API_TOKEN) qs.append("token", API_TOKEN);
-
-  const res = await fetch(`${BASE_HOTEL_URL}/search.json?${qs}`, {
-    headers: ensureHeaders(),
-  });
-  if (!res.ok) throw new Error(`Hotel search failed: ${res.statusText}`);
-  const json: { results: any[] } = await res.json();
-
-  return (json.results || []).slice(0, limit).map((h: any) => ({
-    name: h.name,
-    address: h.address,
-    stars: h.stars,
-    rating: h.rating,
-    coords: { lat: h.location.lat, lon: h.location.lon },
-    price_from: h.priceFrom,
-    deeplink: h.link,
-  }));
-}
-
-export async function find_top_rated_hotels_new(
-  city: string,
-  stars: number,
-  count = 3
+  checkIn: string,
+  checkOut: string,
+  adults: number = 2,
+  currency: string = "usd"
 ) {
-  const hotels = await find_hotels_new(city, stars, undefined, undefined, 2, 20);
-  return hotels.sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, count);
+  const token = process.env.TRAVELPAYOUTS_API_KEY;
+  const url = "https://engine.hotellook.com/api/v2/search.json";
+
+  try {
+    const { data } = await axios.get(url, {
+      params: {
+        location: city,
+        checkIn,
+        checkOut,
+        adults,
+        currency,
+        token,
+      },
+    });
+
+    return data.map((item: any) => ({
+      name: item.hotelName,
+      stars: item.stars,
+      distanceFromCenter: item.distance,
+      price: item.priceFrom,
+      bookingLink: item.link,
+      currency: currency.toUpperCase(),
+    }));
+  } catch (error) {
+    console.error("Error fetching hotels:", error);
+    return [];
+  }
 }
 
 //--------------------------------------------------------------
