@@ -17,9 +17,8 @@ if (!API_TOKEN) {
   throw new Error("TRAVELPAYOUTS_API_TOKEN is not set in your .env file");
 }
 
-const BASE_HOTEL_URL = "https://engine.hotellook.com/api/v2";               // HotelLook
-const BASE_FLIGHT_URL = "https://api.travelpayouts.com/v1/prices/cheap";     // Stable cheap‑prices endpoint
-
+const BASE_HOTEL_URL = "https://engine.hotellook.com/api/v2";               
+const BASE_FLIGHT_URL = "https://api.travelpayouts.com/v1/prices/cheap";     
 //--------------------------------------------------------------
 // Types (simplified)
 //--------------------------------------------------------------
@@ -182,15 +181,14 @@ export async function search_flights(
 
   if (Object.keys(flightData).length === 0) {
     console.warn(`⚠️ No flight data found for destination: ${destination}`);
-    return []; // supaya tidak error saat kosong
+    return []; 
   }
 
-  return Object.entries(flightData).map(([airlineCode, info]: any) => {
-    const airline = airlineMap[airlineCode];
-
+  return Object.values(flightData).map((info: any) => {
+    const airline = airlineMap[info.airline];
     return {
-      airline: airline?.name || `Unknown Airline (${airlineCode})`,
-      airline_code: airlineCode,
+      airline: airline?.name || info.airline,
+      airline_code: info.airline,
       airline_url: airline?.url || null,
       price: info.price,
       departure_at: info.departure_at,
