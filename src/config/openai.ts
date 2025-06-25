@@ -9,7 +9,7 @@ export const openai = new OpenAI({
   apiKey: config.openai.apiKey,
 });
 
-// Define the OpenAI tools
+// Define the tools
 export const tools: ChatCompletionTool[] = [
   {
     type: "function",
@@ -54,50 +54,7 @@ export const tools: ChatCompletionTool[] = [
       }
     }
   },
-  {
-    type: "function",
-    function: {
-      name: "find_travel_destinations",
-      description: "Find tourist attractions in a city",
-      parameters: {
-        type: "object",
-        properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          count: {
-            type: "number",
-            description: "Number of destinations needed to generate itinerary",
-          },
-        },
-        required: ["city", "count"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "find_car_rentals",
-      "description": "Identify available vehicle rental services within a specified geographic location",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {
-            "type": "string",
-            "description": "Target geographic location specification (city and country format), e.g., 'Bali, Indonesia'"
-          },
-          "count": {
-            "type": "number",
-            "description": "Quantity parameter specifying the maximum number of rental service providers to retrieve"
-          }
-        },
-        "required": ["city", "count"],
-        "additionalProperties": false
-      }
-    }
-  },
+
   {
     type: "function",
     function: {
@@ -106,24 +63,82 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          stars: {
-            type: "number",
-            description: "Minimum number of stars for hotels",
-          },
-          nearCBD: {
-            type: "boolean",
-            description: "Whether to find hotels near Central Business District",
-          },
+          city: { type: "string" },
+          stars: { type: "number" },
+          nearCBD: { type: "boolean" }
         },
         required: ["city", "stars", "nearCBD"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
+  {
+    type: "function",
+    function: {
+      name: "find_top_rated_hotels_new",
+      description: "Find top-rated hotels in a city based on minimum star rating",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string" },
+          stars: { type: "number" },
+          count: { type: "number", default: 3 }
+        },
+        required: ["city", "stars"],
+        additionalProperties: false
+      }
+    }
+  },
+
+  {
+    type: "function",
+    function: {
+      name: "find_car_rentals",
+      description: "Identify available vehicle rental services within a specified geographic location",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string" },
+          count: { type: "number" }
+        },
+        required: ["city", "count"],
+        additionalProperties: false
+      }
+    }
+  },
+
+  {
+    type: "function",
+    function: {
+      name: "search_flights",
+      description: "Search available flights between two locations for given dates",
+      parameters: {
+        type: "object",
+        properties: {
+          origin: {
+            type: "string",
+            description: "City or airport code for departure (e.g., 'Yogyakarta' or 'JOG')"
+          },
+          destination: {
+            type: "string",
+            description: "City or airport code for arrival (e.g., 'Bali' or 'DPS')"
+          },
+          departDate: {
+            type: "string",
+            description: "Departure date in YYYY-MM-DD format"
+          },
+          returnDate: {
+            type: "string",
+            description: "Return date in YYYY-MM-DD format (optional)"
+          }
+        },
+        required: ["origin", "destination", "departDate"],
+        additionalProperties: false
+      }
+    }
+  },
+
   {
     type: "function",
     function: {
@@ -132,25 +147,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          cuisine: {
-            type: "string",
-            description: "Type of cuisine, e.g., 'Indonesian', 'Italian', 'Seafood'",
-          },
-          count: {
-            type: "number",
-            description: "Number of restaurants to find",
-            default: 3
-          }
+          city: { type: "string" },
+          cuisine: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "cuisine"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -159,25 +165,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          type: {
-            type: "string",
-            description: "Type of venue, e.g., 'bar', 'night club', 'lounge'",
-          },
-          count: {
-            type: "number",
-            description: "Number of venues to find",
-            default: 3
-          }
+          city: { type: "string" },
+          type: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "type"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -186,52 +183,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          type: {
-            type: "string",
-            description: "Type of meeting venue, e.g., 'conference center', 'meeting room', 'co-working space'",
-          },
-          count: {
-            type: "number",
-            description: "Number of venues to find",
-            default: 3
-          }
+          city: { type: "string" },
+          type: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "type"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
-  {
-    type: "function",
-    function: {
-      name: "find_top_rated_hotels",
-      description: "Find top-rated hotels in a city based on minimum star rating",
-      parameters: {
-        type: "object",
-        properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          stars: {
-            type: "number",
-            description: "Minimum number of stars for hotels",
-          },
-          count: {
-            type: "number",
-            description: "Number of hotels to find",
-            default: 3
-          }
-        },
-        required: ["city", "stars"],
-        additionalProperties: false,
-      },
-    },
-  },
+
   {
     type: "function",
     function: {
@@ -240,25 +201,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          cuisine: {
-            type: "string",
-            description: "Type of cuisine, e.g., 'Indonesian', 'Italian', 'Seafood'",
-          },
-          count: {
-            type: "number",
-            description: "Number of restaurants to find",
-            default: 3
-          }
+          city: { type: "string" },
+          cuisine: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "cuisine"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -267,25 +219,16 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          type: {
-            type: "string",
-            description: "Type of meeting venue, e.g., 'conference center', 'meeting room', 'co-working space'",
-          },
-          count: {
-            type: "number",
-            description: "Number of venues to find",
-            default: 3
-          }
+          city: { type: "string" },
+          type: { type: "string" },
+          count: { type: "number", default: 3 }
         },
         required: ["city", "type"],
-        additionalProperties: false,
-      },
-    },
+        additionalProperties: false
+      }
+    }
   },
+
   {
     type: "function",
     function: {
@@ -294,24 +237,17 @@ export const tools: ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          city: {
-            type: "string",
-            description: "City and country, e.g., 'Bali, Indonesia'",
-          },
-          count: {
-            type: "number",
-            description: "Number of attractions to find",
-            default: 5
-          }
+          city: { type: "string" },
+          count: { type: "number", default: 5 }
         },
         required: ["city"],
-        additionalProperties: false,
-      },
-    },
-  },
+        additionalProperties: false
+      }
+    }
+  }
 ];
 
-// Read system prompt from file
+// System prompt loader
 export function getSystemPrompt(): string {
   try {
     const content = fs.readFileSync(path.join(process.cwd(), 'sys-new.txt'), 'utf-8');

@@ -159,32 +159,47 @@ export async function search_flights(
   qs.append("destination", destination);
   qs.append("depart_date", departDate);
   qs.append("currency", "usd");
-  if (API_TOKEN) qs.append("token", API_TOKEN);
+  qs.append("token", API_TOKEN!); // paksa karena sudah dicek sebelumnya
   if (returnDate) qs.append("return_date", returnDate);
 
   const res = await fetch(`${BASE_FLIGHT_URL}?${qs}`, {
     headers: ensureHeaders(),
   });
 
-  if (!res.ok) throw new Error(`Flight search failed: ${res.statusText}`);
+  const text = await res.text();
+  console.log("RAW RESPONSE:", text); // bantu debug saat kosong
 
-  const json = await res.json();
+  if (!res.ok) throw new Error(`Flight search failed: ${text}`);
+
+  const json = JSON.parse(text);
+
+  if (!json.success) {
+    console.error("TravelPayouts API Error Response:", JSON.stringify(json));
+    throw new Error("Flight search failed: Invalid response from API");
+  }
+
   const flightData = json.data?.[destination] || {};
 
-return Object.entries(flightData).map(([airlineCode, info]: any) => {
-  const airline = airlineMap[airlineCode];
-  return {
-    airline: airline?.name || airlineCode,
-    airline_code: airlineCode,
-    airline_url: airline?.url || null,
-    price: info.price,
-    departure_at: info.departure_at,
-    return_at: info.return_at,
-    flight_number: info.flight_number,
-    transfers: info.transfers,
-    expires_at: info.expires_at,
-  };
-});
+  if (Object.keys(flightData).length === 0) {
+    console.warn(`⚠️ No flight data found for destination: ${destination}`);
+    return []; // supaya tidak error saat kosong
+  }
+
+  return Object.entries(flightData).map(([airlineCode, info]: any) => {
+    const airline = airlineMap[airlineCode];
+
+    return {
+      airline: airline?.name || `Unknown Airline (${airlineCode})`,
+      airline_code: airlineCode,
+      airline_url: airline?.url || null,
+      price: info.price,
+      departure_at: info.departure_at,
+      return_at: info.return_at,
+      flight_number: info.flight_number,
+      transfers: info.transfers,
+      expires_at: info.expires_at,
+    };
+  });
 }
 
 

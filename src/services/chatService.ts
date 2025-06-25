@@ -309,6 +309,7 @@ export async function processMessage(
                           tool_call_id: toolId,
                         });
                       }
+                      break; 
 
 
                     case "find_travel_destinations":
@@ -327,21 +328,27 @@ export async function processMessage(
                         tool_call_id: toolId,
                       });
                       break;
-                    case "find_hotels_with_price":
-  const hotels = await travelService.findHotelsWithPrice(
-    data.city,
-    data.checkIn,
-    data.checkOut,
-    data.adults || 2,
-    data.currency || "usd"
-  );
-
-  toolsCalls.push({
-    role: "tool",
-    content: JSON.stringify(hotels),
-    tool_call_id: toolId,
-  });
-  break;
+                      case "search_flights":
+                      const flights = await travelService.search_flights(
+                        data.origin,
+                        data.destination,
+                        data.departDate,
+                        data.returnDate // opsional
+                      );
+                      toolsCalls.push({
+                        role: "tool",
+                        content: JSON.stringify(flights),
+                        tool_call_id: toolId,
+                      });
+                      break;
+                    case "find_hotels":
+                      const hotels = await placesService.findHotels(data.city, data.stars, data.nearCBD);
+                      toolsCalls.push({
+                        role: "tool",
+                        content: JSON.stringify(hotels),
+                        tool_call_id: toolId,
+                      });
+                      break;
                     case "find_restaurants":
                       const restaurants = await placesService.findRestaurants(
                         data.city,
