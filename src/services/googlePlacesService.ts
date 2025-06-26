@@ -47,6 +47,9 @@ export interface Place {
   googleMapsUri: string;
   websiteUri?: string;
   displayName: DisplayName;
+  nationalPhoneNumber?: string;
+  internationalPhoneNumber?: string;
+  priceRange?: string;
 }
 
 // Haversine formula for calculating distance between coordinates
@@ -209,6 +212,8 @@ export async function findCarRentalServices(
 
   return rentalServicesData;
 }
+
+
 import { Client, TravelMode } from "@googlemaps/google-maps-services-js";
 
 // Define Types

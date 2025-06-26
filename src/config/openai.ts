@@ -73,22 +73,32 @@ export const tools: ChatCompletionTool[] = [
     }
   },
 
-  {
+ {
     type: "function",
     function: {
-      name: "find_top_rated_hotels_new",
+      name: "find_top_rated_hotels",
       description: "Find top-rated hotels in a city based on minimum star rating",
       parameters: {
         type: "object",
         properties: {
-          city: { type: "string" },
-          stars: { type: "number" },
-          count: { type: "number", default: 3 }
+          city: {
+            type: "string",
+            description: "City and country, e.g., 'Bali, Indonesia'",
+          },
+          stars: {
+            type: "number",
+            description: "Minimum number of stars for hotels",
+          },
+          count: {
+            type: "number",
+            description: "Number of hotels to find",
+            default: 3
+          }
         },
         required: ["city", "stars"],
-        additionalProperties: false
-      }
-    }
+        additionalProperties: false,
+      },
+    },
   },
 
   {
@@ -118,11 +128,11 @@ export const tools: ChatCompletionTool[] = [
         properties: {
           origin: {
             type: "string",
-            description: "City or airport code for departure (e.g., 'Yogyakarta' or 'JOG')"
+            description: "Airport code for departure (e.g., 'JOG' or 'CGK')"
           },
           destination: {
             type: "string",
-            description: "City or airport code for arrival (e.g., 'Bali' or 'DPS')"
+            description: "Airport code for arrival (e.g., 'DPS' or 'JOG')"
           },
           departDate: {
             type: "string",
@@ -244,7 +254,25 @@ export const tools: ChatCompletionTool[] = [
         additionalProperties: false
       }
     }
-  }
+  },
+   {
+    type: "function",
+    function: {
+      name: "get_weather",
+      description: "Get weather information for a specific city",
+      parameters: {
+        type: "object",
+        properties: {
+          city: {
+            type: "string",
+            description: "The name of the city to get weather information for",
+          },
+        },
+        required: ["city"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // System prompt loader
@@ -254,7 +282,7 @@ export function getSystemPrompt(): string {
     const match = content.match(/# USER_PROMPT_TEMPLATE([\s\S]*)/);
     return match ? match[1].trim() : "Welcome! Let's start planning your trip.";
   } catch (error) {
-    console.error("Error reading user prompt template:", error);
-    return "Welcome! Let's start planning your trip.";
-  }
+    console.error("Error reading system prompt file:", error);
+    return "You are a helpful travel assistant.";
+  }
 }
