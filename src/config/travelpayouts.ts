@@ -8,7 +8,6 @@
 
 import dotenv from "dotenv";
 import fetch from "node-fetch";
-import axios from "axios";
 
 dotenv.config();
 
@@ -24,6 +23,8 @@ const BASE_FLIGHT_URL = "https://api.travelpayouts.com/v1/prices/cheap";
 //--------------------------------------------------------------
 interface Coordinates { lat: number; lon: number }
 export interface Hotel {
+  phone: any;
+  price_to: number | undefined;
   name: string;
   address: string;
   stars: number;
@@ -49,42 +50,81 @@ function dateOffset(days = 30) {
 //--------------------------------------------------------------
 // 1) HOTEL SEARCH (HotelLook)
 //--------------------------------------------------------------
-export async function findHotelsWithPrice(
+export async function find_hotels_new(
   city: string,
-  checkIn: string,
-  checkOut: string,
-  adults: number = 2,
-  currency: string = "usd"
-) {
-  const token = process.env.TRAVELPAYOUTS_API_KEY;
-  const url = "https://engine.hotellook.com/api/v2/search.json";
+  stars: number,
+  checkIn: string = dateOffset(30),
+  checkOut: string = dateOffset(32),
+  adults = 2,
+  limit = 5
+): Promise<Hotel[]> {
+  const qs = new URLSearchParams();
+  qs.append("location", city);
+  qs.append("checkIn", checkIn);
+  qs.append("checkOut", checkOut);
+  qs.append("currency", "usd");
+  qs.append("adults", adults.toString());
+  qs.append("limit", limit.toString());
+  if (API_TOKEN) qs.append("token", API_TOKEN);
 
-  try {
-    const { data } = await axios.get(url, {
-      params: {
-        location: city,
-        checkIn,
-        checkOut,
-        adults,
-        currency,
-        token,
+  const res = await fetch(`${BASE_HOTEL_URL}/cache.json?${qs}`, {
+    headers: ensureHeaders(),
+  });
+
+  if (!res.ok) throw new Error(`Hotel search failed: ${res.statusText}`);
+
+  const data: any[] = await res.json();
+  console.log("HOTEL RAW DATA", JSON.stringify(data, null, 2));
+
+  const result: Hotel[] = [];
+
+  for (const h of data.filter((h) => h.stars >= stars).slice(0, limit)) {
+    let detail = h;
+
+    // Jika kamu punya endpoint detail, ambil di sini
+    try {
+      const detailRes = await fetch(`${BASE_HOTEL_URL}/hotel/${h.hotelId}/details.json`, {
+        headers: ensureHeaders(),
+      });
+      if (detailRes.ok) {
+        detail = await detailRes.json();
+      }
+    } catch (e) {
+      console.warn("Failed to fetch hotel detail for ID:", h.hotelId);
+    }
+
+    result.push({
+      name: detail.hotelName || detail.name,
+      address: detail.address || "Address not available",
+      stars: detail.stars || 0,
+      rating: detail.rating || 0,
+      coords: {
+        lat: detail.location?.geo?.lat || 0,
+        lon: detail.location?.geo?.lon || 0,
       },
+      price_from: detail.priceFrom || detail.price || 0,
+      price_to: detail.priceTo || undefined,
+      phone: detail.phone || "Phone not available",
+      deeplink: detail.link || null,
     });
-
-    return data.map((item: any) => ({
-      name: item.hotelName,
-      stars: item.stars,
-      distanceFromCenter: item.distance,
-      price: item.priceFrom,
-      bookingLink: item.link,
-      currency: currency.toUpperCase(),
-    }));
-  } catch (error) {
-    console.error("Error fetching hotels:", error);
-    return [];
   }
+
+  return result;
 }
 
+console.log("🔥 find_hotels_new DIPANGGIL");
+
+export async function find_top_rated_hotels_new(
+  city: string,
+  stars: number,
+  count = 5
+) {
+  // Ambil 30 data dulu, lalu sortir & ambil top count
+  const hotels = await find_hotels_new(city, stars, undefined, undefined, 2, 30);
+  return hotels
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    .slice(0, count); // hasil tetap memiliki address, phone, deeplink, dll
+}
 //--------------------------------------------------------------
 // 2) FLIGHT SEARCH (cheap prices)
 //--------------------------------------------------------------
