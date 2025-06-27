@@ -26,7 +26,10 @@ const fields = [
   "places.rating",
   "places.location",
   "places.priceRange",
-  "places.priceLevel"
+  "places.priceLevel",
+  "places.fleet", // Added fleet
+  "places.contactInfo", // Added contact information
+  "places.driverAvailability" // Added driver availability
 ].join(",");
 
 // Define interfaces
@@ -49,7 +52,11 @@ export interface Place {
   displayName: DisplayName;
   nationalPhoneNumber?: string;
   internationalPhoneNumber?: string;
-  priceRange?: string;
+  priceLevel?: string;  // Price level for rent
+  priceRange?: string; // Price range
+  fleet?: string;  // Fleet details like car types, etc.
+  contactInfo?: string;  // Contact information
+  driverAvailability?: string;  
 }
 
 // Haversine formula for calculating distance between coordinates
@@ -212,7 +219,6 @@ export async function findCarRentalServices(
 
   return rentalServicesData;
 }
-
 
 import { Client, TravelMode } from "@googlemaps/google-maps-services-js";
 
