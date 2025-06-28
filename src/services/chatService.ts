@@ -7,6 +7,7 @@ import { generateSessionTitle } from "./titleGeneratorService";
 import { TravelMode } from "@googlemaps/google-maps-services-js";
 import * as travelService from "../config/travelpayouts";
 import { Hotel } from "../config/travelpayouts";
+import * as weatherService from "../config/weather";
 
 /**
  * Save a message to the database
@@ -500,6 +501,14 @@ for await (const chunk of completion) {
                         content: JSON.stringify(topAttractions),
                         tool_call_id: toolId,
                       });
+                      break;
+                      case "get_weather":
+                        const weather = await weatherService.getWeather(data.city);
+                        toolsCalls.push({
+                          role: "tool",
+                          content: JSON.stringify(weather),
+                          tool_call_id: toolId,
+                        });
                       break;
                     default:
                       console.error(`Unknown function: ${functionName}`);
