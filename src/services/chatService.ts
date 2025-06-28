@@ -327,6 +327,8 @@ for await (const chunk of completion) {
             const data = JSON.parse(args);
             args = "";
 
+            console.log("⚙️  Received tool_call:", functionName, toolId);
+
             toolsCallsDetail.push({
               function: { name: functionName, arguments: JSON.stringify(data) },
               id: toolId,
@@ -385,7 +387,8 @@ for await (const chunk of completion) {
                         tool_call_id: toolId,
                       });
                       break;
-                      case "find_hotels":
+                    case "find_hotels":
+                      try {
                         const hotels = await travelService.find_hotels_new(
                           data.city,
                           data.stars,
@@ -394,23 +397,63 @@ for await (const chunk of completion) {
                           data.adults || 2,
                           data.limit || 5
                         );
-                        
-                        const filteredHotels = hotels.filter(h => h.stars >= 4).slice(0, data.limit || 5);
 
-                        const hotelMessage = formatHotelsList(
-                          filteredHotels,
-                          data.city,
-                          data.checkIn,
-                          data.checkOut
-                        );
-                        console.log("Formatted hotel message:", hotelMessage); 
-
+                        if (hotels.length === 0) {
+                          toolsCalls.push({
+                            role: "tool",
+                            content: JSON.stringify({ error: "No hotels found for the given parameters." }),
+                            tool_call_id: toolId,
+                          });
+                        } else {
+                          const hotelMessage = formatHotelsList(hotels, data.city, data.checkIn, data.checkOut);
+                          toolsCalls.push({
+                            role: "tool",
+                            content: hotelMessage,
+                            tool_call_id: toolId,
+                          });
+                        }
+                      } catch (e) {
+                        const err = e as Error;
+                        console.error("find_hotels failed:", err.message);
                         toolsCalls.push({
                           role: "tool",
-                          content: hotelMessage, 
+                          content: JSON.stringify({ error: "Hotel search failed. Please try another destination or date." }),
                           tool_call_id: toolId,
                         });
+                      }
+                      break;
+
+                      case "find_top_rated_hotels":
+                        try {
+                          const hotels = await travelService.find_top_rated_hotels_new(
+                            data.city,
+                            data.stars,
+                            data.count || 3
+                          );
+
+                          const hotelMessage = formatHotelsList(
+                            hotels,
+                            data.city,
+                            data.checkIn,
+                            data.checkOut
+                          );
+
+                          toolsCalls.push({
+                            role: "tool",
+                            content: hotelMessage,
+                            tool_call_id: toolId,
+                          });
+                        } catch (err) {
+                          const error = err as Error;
+                          console.error("find_top_rated_hotels error:", error.message);
+                          toolsCalls.push({
+                            role: "tool",
+                            content: JSON.stringify({ error: "Unable to fetch top-rated hotels." }),
+                            tool_call_id: toolId,
+                          });
+                        }
                         break;
+
                     case "find_restaurants":
                       const restaurants = await placesService.findRestaurants(
                         data.city,
@@ -447,7 +490,7 @@ for await (const chunk of completion) {
                         tool_call_id: toolId,
                       });
                       break;
-                      case "find_top_rated_hotels_new":
+                      case "find_top_rated_hotels":
                       const topHotels = await travelService.find_top_rated_hotels_new(
                         data.city,
                         data.stars,
@@ -510,9 +553,14 @@ for await (const chunk of completion) {
                           tool_call_id: toolId,
                         });
                       break;
-                    default:
-                      console.error(`Unknown function: ${functionName}`);
-                      break;
+                      default:
+                        console.warn("⚠️ Unknown tool_call function:", functionName);
+                        toolsCalls.push({
+                          role: "tool",
+                          content: JSON.stringify({ error: `Function ${functionName} not implemented.` }),
+                          tool_call_id: toolId,
+                        });
+                        break;
                   }
                 }
               }
@@ -521,18 +569,19 @@ for await (const chunk of completion) {
         }
       }
 
-      if (!callFunction) {
-        // Save the assistant's response
-        const assistantMessage: ChatCompletionMessageParam = {
-          role: "assistant",
-          content: acc,
-        };
-        await saveMessage(sessionId, assistantMessage);
-        history.push(assistantMessage);
-        emit(`msg-${sessionId}`, "\n\0");
-        break;
-      } else {
-        // Save the assistant's response with tool calls
+      for (const call of toolsCallsDetail) {
+        const matched = toolsCalls.find(t => t.tool_call_id === call.id);
+        if (!matched) {
+          console.warn("❗ Auto-responding UNHANDLED tool_call_id:", call.id);
+          toolsCalls.push({
+            role: "tool",
+            content: JSON.stringify({ error: "No handler provided." }),
+            tool_call_id: call.id,
+          });
+        }
+      }
+
+      if (callFunction) {
         const assistantMessage: ChatCompletionMessageParam = {
           role: "assistant",
           content: acc,
@@ -541,18 +590,27 @@ for await (const chunk of completion) {
         await saveMessage(sessionId, assistantMessage);
         history.push(assistantMessage);
 
-        // Save each tool response
         for (const toolCall of toolsCalls) {
           await saveMessage(sessionId, toolCall);
           history.push(toolCall);
         }
+
         continue;
+      } else {
+        const assistantMessage: ChatCompletionMessageParam = {
+          role: "assistant",
+          content: acc,
+        };
+        await saveMessage(sessionId, assistantMessage);
+        history.push(assistantMessage);
+        emit(`msg-${sessionId}`, "\n\0");
+        break;
       }
     }
 
     return true;
   } catch (error) {
-    console.error("Error during OpenAI API call:", error);
+    console.error("❌ processMessage error:", error);
     return false;
   }
 }

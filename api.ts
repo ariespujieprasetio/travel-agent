@@ -325,51 +325,8 @@ const tools: ChatCompletionTool[] = [
     },
 ];
 
-// async function find_hotels(city: string, stars: number): Promise<Place[]> {
-//     // Call the Google Places API to find places in the specified city
-//     // with a minimum number of stars for hotels
-//     // Optionally, sort the results by distance if `sorted` is true
-
-//     const data = await places.places.searchText({
-//         // fields: '*',
-
-//         fields: fields,
-//         requestBody: {
-//             textQuery: `${stars} stars hotel in ${city}`,
-//             // textQuery: 'tourist attractions in Yogyakarta',
-//             maxResultCount: 5,
-//         },
-//     });
-
-//     const placesData = data.data.places! as Place[];
-
-//     return placesData;
-// }
-
-// async function find_travel_destinations(city: string, count: number): Promise<Place[]> {
-//     // Call the Google Places API to find tourist attractions in the specified city
-//     // Optionally, sort the results by distance if `sorted` is true
-
-//     const data = await places.places.searchText({
-//         // fields: '*',
-
-//         fields: fields,
-//         requestBody: {
-//             textQuery: `tourist attractions in ${city}`,
-//             maxResultCount: count,
-//         },
-//     });
-
-//     const placesData = data.data.places! as Place[];
-
-//     return placesData;
-// }
-
 // Define the system prompt
 const sysprompt = fs.readFileSync('sys-new.txt', 'utf-8')
-
-
-
 
 
 import express, { Request, Response } from 'express';
@@ -426,7 +383,19 @@ async function doInitChat(key: number, emit: (topic: string, data: string) => {}
 
 // Main conversation loop
 async function doChat(key: number, msg: string, emit: (topic: string, data: string) => {}) {
+    if (!maps.has(key)) {
+        maps.set(key, [
+            { role: "system", content: sysprompt }
+        ]);
+    }
+
     const history = maps.get(key)!;
+
+    // Optional: jika system prompt tidak ditemukan di awal, tambahkan
+    if (!history.find(h => h.role === 'system')) {
+        history.unshift({ role: 'system', content: sysprompt });
+    }
+
     addMessage(key, { role: "user", content: msg });
 
     try {

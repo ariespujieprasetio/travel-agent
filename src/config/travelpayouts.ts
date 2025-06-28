@@ -58,59 +58,68 @@ export async function find_hotels_new(
   adults = 2,
   limit = 5
 ): Promise<Hotel[]> {
-  const qs = new URLSearchParams();
-  qs.append("location", city);
-  qs.append("checkIn", checkIn);
-  qs.append("checkOut", checkOut);
-  qs.append("currency", "usd");
-  qs.append("adults", adults.toString());
-  qs.append("limit", limit.toString());
-  if (API_TOKEN) qs.append("token", API_TOKEN);
+  try {
+    const qs = new URLSearchParams();
+    qs.append("location", city);
+    qs.append("checkIn", checkIn);
+    qs.append("checkOut", checkOut);
+    qs.append("currency", "usd");
+    qs.append("adults", adults.toString());
+    qs.append("limit", limit.toString());
+    if (API_TOKEN) qs.append("token", API_TOKEN);
 
-  const res = await fetch(`${BASE_HOTEL_URL}/cache.json?${qs}`, {
-    headers: ensureHeaders(),
-  });
+    const res = await fetch(`${BASE_HOTEL_URL}/cache.json?${qs}`, {
+      headers: ensureHeaders(),
+    });
 
-  if (!res.ok) throw new Error(`Hotel search failed: ${res.statusText}`);
-
-  const data: any[] = await res.json();
-  console.log("HOTEL RAW DATA", JSON.stringify(data, null, 2));
-
-  const result: Hotel[] = [];
-
-  for (const h of data.filter((h) => h.stars >= stars).slice(0, limit)) {
-    let detail = h;
-
-    // Jika kamu punya endpoint detail, ambil di sini
-    try {
-      const detailRes = await fetch(`${BASE_HOTEL_URL}/hotel/${h.hotelId}/details.json`, {
-        headers: ensureHeaders(),
-      });
-      if (detailRes.ok) {
-        detail = await detailRes.json();
-      }
-    } catch (e) {
-      console.warn("Failed to fetch hotel detail for ID:", h.hotelId);
+    if (!res.ok) {
+      const text = await res.text(); // log isi errornya juga
+      console.error("Hotel API response body:", text);
+      throw new Error(`Hotel search failed: ${res.status} ${res.statusText}`);
     }
 
-    result.push({
-      name: detail.hotelName || detail.name,
-      address: detail.address || "Address not available",
-      stars: detail.stars || 0,
-      rating: detail.rating || 0,
-      coords: {
-        lat: detail.location?.geo?.lat || 0,
-        lon: detail.location?.geo?.lon || 0,
-      },
-      price_from: detail.priceFrom || detail.price || 0,
-      price_to: detail.priceTo || undefined,
-      phone: detail.phone || "Phone not available",
-      deeplink: detail.link || null,
-    });
-  }
+    const data: any[] = await res.json();
+    console.log("HOTEL RAW DATA", JSON.stringify(data, null, 2));
 
-  return result;
+    const result: Hotel[] = [];
+
+    for (const h of data.filter((h) => h.stars >= stars).slice(0, limit)) {
+      let detail = h;
+
+      try {
+        const detailRes = await fetch(`${BASE_HOTEL_URL}/hotel/${h.hotelId}/details.json`, {
+          headers: ensureHeaders(),
+        });
+        if (detailRes.ok) {
+          detail = await detailRes.json();
+        }
+      } catch (e) {
+        console.warn("Failed to fetch hotel detail for ID:", h.hotelId);
+      }
+
+      result.push({
+        name: detail.hotelName || detail.name,
+        address: detail.address || "Address not available",
+        stars: detail.stars || 0,
+        rating: detail.rating || 0,
+        coords: {
+          lat: detail.location?.geo?.lat || 0,
+          lon: detail.location?.geo?.lon || 0,
+        },
+        price_from: detail.priceFrom || detail.price || 0,
+        price_to: detail.priceTo || undefined,
+        phone: detail.phone || "Phone not available",
+        deeplink: detail.link || null,
+      });
+    }
+
+    return result;
+  } catch (e: any) {
+    console.error("Hotel search failed:", e.message);
+    return []; // fallback biar assistant tetap lanjut
+  }
 }
+
 
 console.log("🔥 find_hotels_new DIPANGGIL");
 
