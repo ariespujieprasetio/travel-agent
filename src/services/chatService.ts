@@ -5,6 +5,9 @@ import * as placesService from "./googlePlacesService";
 import { Prisma } from "@prisma/client";
 import { generateSessionTitle } from "./titleGeneratorService";
 import { TravelMode } from "@googlemaps/google-maps-services-js";
+import * as travelService from "../config/travelpayouts";
+import { Hotel } from "../config/travelpayouts";
+import * as weatherService from "../config/weather";
 
 /**
  * Save a message to the database
@@ -202,6 +205,38 @@ export async function getMessagesForChat(sessionId: string): Promise<ChatComplet
 /**
  * Process a user message and generate a response using OpenAI
  */
+
+function formatHotelsList(hotels: Hotel[], city: string, checkIn = "your selected dates", checkOut = "your selected dates") {
+  let message = `Here are some 4-star hotels available in ${city} for your stay from ${checkIn} to ${checkOut}:\n\n`;
+
+  for (const h of hotels) {
+    message += `**${h.name}**\n`;
+
+    message += `📍 Address: ${h.address}\n`;
+    message += `⭐ Rating: ${h.rating || "Not rated"}\n`;
+
+    if (h.price_from && h.price_to) {
+      message += `💰 Price range: $${h.price_from.toFixed(2)} - $${h.price_to.toFixed(2)} per night\n`;
+    } else if (h.price_from) {
+      message += `💰 Price from: $${h.price_from.toFixed(2)} per night\n`;
+    }
+
+    message += `📞 Phone: ${h.phone || "Not available"}\n`;
+
+    if (h.deeplink)
+      message += `🔗 [Website](${h.deeplink})\n`;
+
+    if (h.coords && h.coords.lat !== 0 && h.coords.lon !== 0)
+      message += `[📍 Google Maps](https://www.google.com/maps/search/?api=1&query=${h.coords.lat},${h.coords.lon})\n`;
+
+    message += `\n`;
+  }
+
+  return message;
+}
+
+
+
 export async function processMessage(
   sessionId: string,
   message: string,
@@ -210,6 +245,8 @@ export async function processMessage(
   try {
     // Get existing messages or create a new chat
     let history = await getMessagesForChat(sessionId);
+    let toolResult: any = null;
+
 
     // If there are no messages, add the system prompt
     if (history.length === 0) {
@@ -248,45 +285,55 @@ export async function processMessage(
       let toolsCallsDetail: ChatCompletionMessageToolCall[] = [];
       let toolsCalls: ChatCompletionToolMessageParam[] = [];
 
-      for await (const chunk of completion) {
-        const delta = chunk.choices[0]?.delta;
-        acc += delta.content || "";
+      let toolCallStarted = false; // Flag baru
 
-        if (!delta.tool_calls) {
-          if (delta.content) {
-            emit(`msg-${sessionId}`, delta.content);
-          }
-        } else {
-          // Handle function call
-          for (const call of delta.tool_calls) {
-            if (call.function) {
-              if (call.function.name) functionName = call.function.name;
-              if (call.id) toolId = call.id;
-              if (call.function.arguments) {
-                args += call.function.arguments;
-                const checkValidJSON = (s: string) => {
-                  try {
-                    return Boolean(JSON.parse(s))
-                  } catch (error) {
+for await (const chunk of completion) {
+  const delta = chunk.choices[0]?.delta;
 
-                    return false;
-                  }
-                }
-                // If we have a complete JSON object, call the function
-                if (checkValidJSON(args)) {
-                  callFunction = true;
+  // Deteksi awal tool_call
+  if (delta.tool_calls) {
+    toolCallStarted = true;
+  }
 
-                  console.log(args)
+  // Emit hanya kalau belum masuk tool_call
+  if (!toolCallStarted && delta.content) {
+    emit(`msg-${sessionId}`, delta.content);
+    acc += delta.content;
+  }
 
-                  const data = JSON.parse(args)
+  // Handle tool calls
+  if (delta.tool_calls) {
+    for (const call of delta.tool_calls) {
+      if (call.function) {
+        if (call.function.name) functionName = call.function.name;
+        if (call.id) toolId = call.id;
+        if (call.function.arguments) {
+          args += call.function.arguments;
 
-                  args = "";
+          const checkValidJSON = (s: string) => {
+            try {
+              JSON.parse(s);
+              return true;
+            } catch {
+              return false;
+            }
+          };
 
-                  toolsCallsDetail.push({
-                    function: { name: functionName, arguments: JSON.stringify(data) },
-                    id: toolId,
-                    type: "function",
-                  });
+          if (checkValidJSON(args)) {
+            callFunction = true;
+
+            console.log(args);
+
+            const data = JSON.parse(args);
+            args = "";
+
+            console.log("⚙️  Received tool_call:", functionName, toolId);
+
+            toolsCallsDetail.push({
+              function: { name: functionName, arguments: JSON.stringify(data) },
+              id: toolId,
+              type: "function",
+            });
 
                   // Call the appropriate function based on the function name
                   switch (functionName) {
@@ -308,6 +355,7 @@ export async function processMessage(
                           tool_call_id: toolId,
                         });
                       }
+                      break; 
 
 
                     case "find_travel_destinations":
@@ -326,14 +374,86 @@ export async function processMessage(
                         tool_call_id: toolId,
                       });
                       break;
-                    case "find_hotels":
-                      const hotels = await placesService.findHotels(data.city, data.stars, data.nearCBD);
+                      case "search_flights":
+                      const flights = await travelService.search_flights(
+                        data.origin,
+                        data.destination,
+                        data.departDate,
+                        data.returnDate // opsional
+                      );
                       toolsCalls.push({
                         role: "tool",
-                        content: JSON.stringify(hotels),
+                        content: JSON.stringify(flights),
                         tool_call_id: toolId,
                       });
                       break;
+                    case "find_hotels":
+                      try {
+                        const hotels = await travelService.find_hotels_new(
+                          data.city,
+                          data.stars,
+                          data.checkIn,
+                          data.checkOut,
+                          data.adults || 2,
+                          data.limit || 5
+                        );
+
+                        if (hotels.length === 0) {
+                          toolsCalls.push({
+                            role: "tool",
+                            content: JSON.stringify({ error: "No hotels found for the given parameters." }),
+                            tool_call_id: toolId,
+                          });
+                        } else {
+                          const hotelMessage = formatHotelsList(hotels, data.city, data.checkIn, data.checkOut);
+                          toolsCalls.push({
+                            role: "tool",
+                            content: hotelMessage,
+                            tool_call_id: toolId,
+                          });
+                        }
+                      } catch (e) {
+                        const err = e as Error;
+                        console.error("find_hotels failed:", err.message);
+                        toolsCalls.push({
+                          role: "tool",
+                          content: JSON.stringify({ error: "Hotel search failed. Please try another destination or date." }),
+                          tool_call_id: toolId,
+                        });
+                      }
+                      break;
+
+                      case "find_top_rated_hotels":
+                        try {
+                          const hotels = await travelService.find_top_rated_hotels_new(
+                            data.city,
+                            data.stars,
+                            data.count || 3
+                          );
+
+                          const hotelMessage = formatHotelsList(
+                            hotels,
+                            data.city,
+                            data.checkIn,
+                            data.checkOut
+                          );
+
+                          toolsCalls.push({
+                            role: "tool",
+                            content: hotelMessage,
+                            tool_call_id: toolId,
+                          });
+                        } catch (err) {
+                          const error = err as Error;
+                          console.error("find_top_rated_hotels error:", error.message);
+                          toolsCalls.push({
+                            role: "tool",
+                            content: JSON.stringify({ error: "Unable to fetch top-rated hotels." }),
+                            tool_call_id: toolId,
+                          });
+                        }
+                        break;
+
                     case "find_restaurants":
                       const restaurants = await placesService.findRestaurants(
                         data.city,
@@ -370,15 +490,23 @@ export async function processMessage(
                         tool_call_id: toolId,
                       });
                       break;
-                    case "find_top_rated_hotels":
-                      const topHotels = await placesService.findTopRatedHotels(
+                      case "find_top_rated_hotels":
+                      const topHotels = await travelService.find_top_rated_hotels_new(
                         data.city,
                         data.stars,
                         data.count || 3
                       );
+
+                      const topHotelMessage = formatHotelsList(
+                        topHotels,
+                        data.city,
+                        data.checkIn,
+                        data.checkOut
+                      );
+
                       toolsCalls.push({
                         role: "tool",
-                        content: JSON.stringify(topHotels),
+                        content: topHotelMessage,
                         tool_call_id: toolId,
                       });
                       break;
@@ -417,9 +545,22 @@ export async function processMessage(
                         tool_call_id: toolId,
                       });
                       break;
-                    default:
-                      console.error(`Unknown function: ${functionName}`);
+                      case "get_weather":
+                        const weather = await weatherService.getWeather(data.city);
+                        toolsCalls.push({
+                          role: "tool",
+                          content: JSON.stringify(weather),
+                          tool_call_id: toolId,
+                        });
                       break;
+                      default:
+                        console.warn("⚠️ Unknown tool_call function:", functionName);
+                        toolsCalls.push({
+                          role: "tool",
+                          content: JSON.stringify({ error: `Function ${functionName} not implemented.` }),
+                          tool_call_id: toolId,
+                        });
+                        break;
                   }
                 }
               }
@@ -428,18 +569,19 @@ export async function processMessage(
         }
       }
 
-      if (!callFunction) {
-        // Save the assistant's response
-        const assistantMessage: ChatCompletionMessageParam = {
-          role: "assistant",
-          content: acc,
-        };
-        await saveMessage(sessionId, assistantMessage);
-        history.push(assistantMessage);
-        emit(`msg-${sessionId}`, "\n\0");
-        break;
-      } else {
-        // Save the assistant's response with tool calls
+      for (const call of toolsCallsDetail) {
+        const matched = toolsCalls.find(t => t.tool_call_id === call.id);
+        if (!matched) {
+          console.warn("❗ Auto-responding UNHANDLED tool_call_id:", call.id);
+          toolsCalls.push({
+            role: "tool",
+            content: JSON.stringify({ error: "No handler provided." }),
+            tool_call_id: call.id,
+          });
+        }
+      }
+
+      if (callFunction) {
         const assistantMessage: ChatCompletionMessageParam = {
           role: "assistant",
           content: acc,
@@ -448,17 +590,27 @@ export async function processMessage(
         await saveMessage(sessionId, assistantMessage);
         history.push(assistantMessage);
 
-        // Save each tool response
         for (const toolCall of toolsCalls) {
           await saveMessage(sessionId, toolCall);
           history.push(toolCall);
         }
+
+        continue;
+      } else {
+        const assistantMessage: ChatCompletionMessageParam = {
+          role: "assistant",
+          content: acc,
+        };
+        await saveMessage(sessionId, assistantMessage);
+        history.push(assistantMessage);
+        emit(`msg-${sessionId}`, "\n\0");
+        break;
       }
     }
 
     return true;
   } catch (error) {
-    console.error("Error during OpenAI API call:", error);
+    console.error("❌ processMessage error:", error);
     return false;
   }
 }

@@ -77,13 +77,33 @@
     - **Follow-up:** If no, ask whether they would like flight-search assistance (yes/no).
 
     ---
+### Step 6 Ground Transportation  
+    - *Prompt:* “Would you like a private vehicle with driver during your stay, or would you prefer to use ride-hailing apps (Grab/Uber), or public transportation?”  
+    - *Input Type:* Radio buttons →  
+      - Private car + Driver  
+      - Ride-hailing  
+      - Public Transportation  
 
-    ### Step 6 Ground Transportation  
-    - **Prompt:** “Would you like a private vehicle with driver during your stay, or would you prefer to use ride-hailing apps (Grab/Uber)?”  
-    - **Input Type:** Radio buttons → **Private car + Driver / Ride-hailing**  
-    - **Follow-ups (if Private car selected):**  
-      1. “Is airport pick-up & drop-off required?” (yes/no)  
-      2. “Preferred vehicle model? (default: Toyota Alphard)”
+    - *Follow-ups:*
+      - *If Private car selected:*
+          1. “Is airport pick-up & drop-off required?” (yes/no)
+          2. “Preferred vehicle model? (default: Toyota Alphard)”
+          3. *Display rental services available* (Rental name, address, price, rating, fleet, driver availability)
+          4. *Example Rental Data:*
+            1. ABC Car Rentals - Price: $50 per day - Rating: 4.5 - Fleet: Toyota Alphard, Honda CRV - Driver: Yes
+            2. XYZ Rent-a-Car - Price: $40 per day - Rating: 4.0 - Fleet: Honda Civic, Toyota Corolla - Driver: No
+          5. “Would you like to book one of these options?” (yes/no)
+          6. If "yes", proceed with booking details.      
+      
+      - *If Ride-hailing selected:*  
+        → System/Assistant will estimate average daily ride costs based on destination and standard travel patterns.  
+        *Example Assistant Message:*  
+        > Based on your destination and travel style, ride-hailing apps like Grab or Gojek typically cost around *$10–20 USD per day* in major cities for 2–3 trips.  
+      
+      - *If Public Transportation selected:*  
+        → Acknowledge that this is the most budget-friendly option, and optionally provide basic info about the city's transport system.  
+        *Example Assistant Message:*  
+        > Great choice! Public transport in Jakarta includes TransJakarta buses and MRT with fares ranging from *$0.25–$1.00 USD per trip*.
 
     ---
 
