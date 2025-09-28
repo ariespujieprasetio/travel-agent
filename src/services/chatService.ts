@@ -318,7 +318,7 @@ export async function processMessage(
                       break;
 
                     case "find_hotels":
-                      const hotels = await travelService.find_hotels_new(
+                      const hotels = await travelService.find_hotels(
                         data.city,
                         data.stars,
                         data.checkIn,
@@ -346,7 +346,7 @@ export async function processMessage(
 
                     case "find_top_rated_hotels":
                       const topHotels =
-                        await travelService.find_top_rated_hotels_new(
+                        await travelService.find_top_rated_hotels(
                           data.city,
                           data.stars,
                           data.count || 3
