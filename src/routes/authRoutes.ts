@@ -5,10 +5,13 @@ import { authenticate } from "../middleware/auth";
 const router = express.Router();
 
 // Public routes
-router.post("/register", (req, res) => authController.register(req, res));
-router.post("/login", (req, res) => authController.login(req, res));
+router.post("/register", authController.register);
+router.post("/login", authController.login);
 
 // Protected routes
-router.get("/profile", authenticate, (req, res) => authController.getProfile(req, res));
+router.get("/profile", authenticate, authController.getProfile);
+
+// Google Auth callback
+router.post("/google/callback", authController.handleGoogleAuth);
 
 export default router;

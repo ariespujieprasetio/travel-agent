@@ -1,6 +1,32 @@
+//authController.ts
+
 import { Request, Response } from "express";
 import * as authService from "../services/authService";
 import { AuthRequest } from "../middleware/auth";
+
+
+// Fungsi untuk menangani autentikasi Google
+export const handleGoogleAuth = async (req: Request, res: Response) => {
+  const { idToken } = req.body;
+
+  if (!idToken) {
+    res.status(400).json({ message: 'Token not provided' });
+    return;
+  }
+
+  try {
+    const result = await authService.authenticateWithGoogle(idToken);
+
+    res.status(200).json({
+      success: true,
+      message: 'User authenticated successfully',
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('Google Auth Error:', error);
+    res.status(400).json({ message: error.message || 'Authentication failed' });
+  }
+};
 
 /**
  * Login a user

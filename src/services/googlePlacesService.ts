@@ -24,9 +24,7 @@ const fields = [
   "places.priceLevel",
   "places.priceRange",
   "places.rating",
-  "places.location",
-  "places.priceRange",
-  "places.priceLevel"
+  "places.location"
 ].join(",");
 
 // Define interfaces
@@ -47,6 +45,13 @@ export interface Place {
   googleMapsUri: string;
   websiteUri?: string;
   displayName: DisplayName;
+  nationalPhoneNumber?: string;
+  internationalPhoneNumber?: string;
+  priceLevel?: string;  // Price level for rent
+  priceRange?: string; // Price range
+  fleet?: string;  // Fleet details like car types, etc.
+  contactInfo?: string;  // Contact information
+  driverAvailability?: string;  
 }
 
 // Haversine formula for calculating distance between coordinates
@@ -193,7 +198,7 @@ export async function findTravelDestinations(
 export async function findCarRentalServices(
   city: string,
   count: number
-): Promise<Place[]> {
+): Promise<string> {
   console.log(`Initiating search for car rental services in ${city}, requested result count: ${count}`);
 
   const data = await places.places.searchText({
@@ -204,11 +209,22 @@ export async function findCarRentalServices(
     },
   });
 
-  const rentalServicesData = data.data.places! as Place[];
-  console.log(`Successfully retrieved ${rentalServicesData.length} car rental service locations in ${city}`);
+  const placesData = data.data.places! as Place[];
 
-  return rentalServicesData;
+  console.log(`Successfully retrieved ${placesData.length} car rental service locations in ${city}`);
+
+  const resultText = placesData.map((place, index) => {
+    return `${index + 1}. ${place.displayName?.text || '-'}\n` +
+           `Alamat: ${place.formattedAddress || '-'}\n` +
+           `Telepon: ${place.nationalPhoneNumber || place.internationalPhoneNumber || '-'}\n` +
+           `Rating: ${place.rating || '-'}\n` +
+           `Website: ${place.websiteUri || '-'}\n` +
+           `Peta Lokasi: ${place.googleMapsUri || '-'}\n`;
+  }).join('\n');
+
+  return `Berikut adalah beberapa layanan rental mobil di ${city}:\n\n${resultText}`;
 }
+
 import { Client, TravelMode } from "@googlemaps/google-maps-services-js";
 
 // Define Types

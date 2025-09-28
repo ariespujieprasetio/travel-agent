@@ -14,6 +14,8 @@ model User {
   email         String         @unique
   password      String
   name          String?
+  googleId      String?        @unique
+  provider      String?        @default("local")
   isAdmin       Boolean        @default(false)  // Add this line
   roles         Json?          // Add this line for role-based auth
   permissions   Json?          // Add this line for feature permissions
