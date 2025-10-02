@@ -433,18 +433,39 @@ export async function processMessage(
                       });
                       break;
 
-                    case "find_top_rated_attractions":
-                      toolsCalls.push({
-                        role: "tool",
-                        content: JSON.stringify(
-                          await placesService.findTopRatedAttractions(
-                            data.city,
-                            data.count || 5
-                          )
-                        ),
-                        tool_call_id: toolId,
-                      });
-                      break;
+                      case "find_top_rated_attractions":
+                        // 🚫 Guard: block attractions before Step 9
+                        const step9Reached = history.some(
+                          (m) =>
+                            m.role === "assistant" &&
+                            typeof m.content === "string" &&
+                            m.content.includes("Step 9")
+                        );
+                      
+                        if (!step9Reached) {
+                          console.log("🚫 Blocked attractions tool call before Step 9");
+                          toolsCalls.push({
+                            role: "tool",
+                            content: JSON.stringify({
+                              error: "Tourist attractions are not available until Step 9 of the flow."
+                            }),
+                            tool_call_id: toolId,
+                          });
+                          break;
+                        }
+                      
+                        // ✅ Only run if Step 9 is reached
+                        toolsCalls.push({
+                          role: "tool",
+                          content: JSON.stringify(
+                            await placesService.findTopRatedAttractions(
+                              data.city,
+                              data.count || 5
+                            )
+                          ),
+                          tool_call_id: toolId,
+                        });
+                        break;
 
                     case "get_weather":
                       toolsCalls.push({

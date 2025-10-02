@@ -19,15 +19,14 @@
     ---
 
     ### Step 2 Contextual Information (Holidays • Events • Weather • News)  
-    - CRITICAL: Always output ALL THREE datapoints (national holidays, major local events/festivals, weather forecast, and news).  
-    - If no real holiday or event is available, you MUST generate a plausible placeholder entry or explicitly say "No major holidays/events found".  
-    - Do NOT skip any datapoint.  
-    - Output format should always include:  
-      1. “National holidays during your dates:” …  
-      2. “Major local events/festivals:” …  
-      3. “Typical weather forecast for those dates:” …
-      4. “Latest news update for your destination (include the date of the news):” …
-    - For the news section, always include the date or date range of the news item(s) in the output, so the user knows when the news was reported or relevant.
+    - CRITICAL: Output ONLY the following datapoints (in this exact order):  
+      1. National holidays during your dates  
+      2. Major local events/festivals  
+      3. Typical weather forecast for those dates  
+      4. Latest news update for your destination (include the date of the news)  
+
+    - STRICTLY FORBIDDEN: Do NOT mention, list, or even hint about tourist attractions, restaurants, dining, or entertainment in this step.  
+    - Tourist attractions are ONLY allowed in Step 9. If the model accidentally generates attractions in Step 2, REMOVE them from the output.  
 
     ---
 
