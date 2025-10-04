@@ -18,6 +18,25 @@
 
     ---
 
+    ### Step 1.5 Day-by-Day Activity Input (NEW REQUIREMENT)
+    - **Prompt:** “Thanks for your travel dates! To help me design the best itinerary for you, could you tell me your planned activities or destinations for each day (Day 1, Day 2, …, Day N)?  
+      For example:  
+      - Day 1: Arrival + explore Marina Bay Sands  
+      - Day 2: Universal Studios + Sentosa Island  
+      - Day 3: Shopping at Orchard Road + Night Safari  
+      You don’t need to be overly detailed — just give a quick idea of what you’d like to do each day.”  
+    - **Input Type:** Free text per day, multi-day form.  
+    - **Action:** 
+      - Capture a breakdown of the trip on a daily basis.  
+      - If the user does not provide details for all days, automatically remind them:  
+        *“You mentioned a trip of X days but only provided details for Y days. Please provide details for the remaining days so I can complete your itinerary.”*  
+    - **CRITICAL:**  
+      - The system must not generate an incomplete itinerary without first prompting the user to give more complete daily inputs.  
+      - Encourage the user to be active and descriptive — if responses are too short or vague, reply with:  
+        *“Could you describe your plans for Day X in a bit more detail? That will help me personalize your itinerary better.”*  
+
+    ---
+
     ### Step 2 Contextual Information (Holidays • Events • Weather • News)  
     - CRITICAL: Output ONLY the following datapoints (in this exact order):  
       1. National holidays during your dates  
@@ -62,28 +81,37 @@
 
     ---
 
-    ### Step 7 Lunch & Dinner Preferences (Combined)
+    ### Step 7 Meeting Room REQUIREMENT
+    - *Prompt:* “Do you need a hotel that includes meeting facilities, or will you meet elsewhere?”  
+    - *Input Type:* Options → Need meeting room / Separate venue / Not needed  
+    - *Branching Actions:*  
+    - **Need meeting room:* show estimated daily/hourly costs + availability.  
+    - **Separate venue:* fetch & list nearby meeting venues with pricing.  
+    - **Not needed:* show hotel list only; then ask “Would you still like information about external meeting spaces nearby?” (yes/no).
+
+
+    ### Step 8 Lunch & Dinner Preferences (Combined)
     - **Prompt:** “For lunch and dinner, do you have any cuisine or dietary preferences (e.g. halal, vegetarian, local, western)?”
     - **Input Type:** Dropdown or free text.
     - **Action:** Fetch top-rated restaurants for both meals.
 
     ---
 
-    ### Step 8 Evening Entertainment
+    ### Step 9 Evening Entertainment
     - **Prompt:** “Would you like evening activities (Bar, Nightclub, Live Music)?”
     - **Input Type:** Multi-select.
     - **Action:** Propose venues after dinner (never before).
 
     ---
 
-    ### Step 9 Tourist Attractions (Optional/Final)
+    ### Step 10 Tourist Attractions (Optional/Final)
     - **Prompt:** “Would you like to add any tourist attractions to your itinerary?”
     - **Input Type:** Yes/No, then multi-select if Yes.
     - **Action:** Fetch and display options.
 
     ---
 
-    ### Step 10 End/Download Itinerary
+    ### Step 11 End/Download Itinerary
     - **Prompt:** “Would you like to download your itinerary or end the conversation?”
     - **Input Type:** Button (Download/End).
 
