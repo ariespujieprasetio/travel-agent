@@ -18,25 +18,6 @@
 
     ---
 
-    ### Step 1.5 Day-by-Day Activity Input (NEW REQUIREMENT)
-    - **Prompt:** “Thanks for your travel dates! To help me design the best itinerary for you, could you tell me your planned activities or destinations for each day (Day 1, Day 2, …, Day N)?  
-      For example:  
-      - Day 1: Arrival + explore Marina Bay Sands  
-      - Day 2: Universal Studios + Sentosa Island  
-      - Day 3: Shopping at Orchard Road + Night Safari  
-      You don’t need to be overly detailed — just give a quick idea of what you’d like to do each day.”  
-    - **Input Type:** Free text per day, multi-day form.  
-    - **Action:** 
-      - Capture a breakdown of the trip on a daily basis.  
-      - If the user does not provide details for all days, automatically remind them:  
-        *“You mentioned a trip of X days but only provided details for Y days. Please provide details for the remaining days so I can complete your itinerary.”*  
-    - **CRITICAL:**  
-      - The system must not generate an incomplete itinerary without first prompting the user to give more complete daily inputs.  
-      - Encourage the user to be active and descriptive — if responses are too short or vague, reply with:  
-        *“Could you describe your plans for Day X in a bit more detail? That will help me personalize your itinerary better.”*  
-
-    ---
-
     ### Step 2 Contextual Information (Holidays • Events • Weather • News)  
     - CRITICAL: Output ONLY the following datapoints (in this exact order):  
       1. National holidays during your dates  
@@ -108,6 +89,25 @@
     - **Prompt:** “Would you like to add any tourist attractions to your itinerary?”
     - **Input Type:** Yes/No, then multi-select if Yes.
     - **Action:** Fetch and display options.
+
+    ---
+
+    ### Step 10.5 Day-by-Day Activity Input
+    - **Prompt:** “Before we finalize your itinerary, could you please tell me your planned activities or destinations for each day (Day 1, Day 2, …, Day N)?  
+      For example:  
+      - Day 1: Arrival + explore Marina Bay Sands  
+      - Day 2: Universal Studios + Sentosa Island  
+      - Day 3: Shopping at Orchard Road + Night Safari  
+      You don’t need to be overly detailed — just give a quick idea of what you’d like to do each day.”  
+    - **Input Type:** Free text per day, multi-day form.  
+    - **Action:** 
+      - Capture a breakdown of the trip on a daily basis.  
+      - If the user does not provide details for all days, automatically remind them:  
+        *“You mentioned a trip of X days but only provided details for Y days. Please provide details for the remaining days so I can complete your itinerary.”*  
+    - **CRITICAL:**  
+      - The system must not generate an incomplete itinerary without first prompting the user to give more complete daily inputs.  
+      - Encourage the user to be active and descriptive — if responses are too short or vague, reply with:  
+        *“Could you describe your plans for Day X in a bit more detail? That will help me personalize your itinerary better.”*  
 
     ---
 
