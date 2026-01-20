@@ -87,7 +87,7 @@ export async function find_hotels(
       throw new Error(`Hotel search failed: ${res.status} ${text}`);
     }
 
-    const data: any[] = await res.json();
+    const data: any[] = await res.json() as any[];
     const result: Hotel[] = [];
 
     for (const h of data.filter((h) => h.stars >= stars).slice(0, limit)) {
@@ -174,7 +174,7 @@ export async function search_hotels(
       throw new Error(`Hotel search failed: ${res.status} ${text}`);
     }
 
-    const data: any[] = await res.json();
+    const data: any[] = await res.json() as any[];
     const hotels: Hotel[] = [];
 
     for (const h of data.filter((h) => h.stars >= stars).slice(0, limit)) {
@@ -190,7 +190,7 @@ export async function search_hotels(
         );
         if (detailRes.ok) {
           const lookup = await detailRes.json();
-          detail = lookup?.results?.[0] || {};
+          detail = (lookup as { results?: any[] })?.results?.[0] || {};
         }
       } catch (e) {
         console.warn("Lookup failed for:", h.hotelId, e);
@@ -382,7 +382,7 @@ async function search_cached_flights(origin: string, destination: string, startD
     const url = `${BASE_FLIGHT_CACHE_URL}?origin=${origin}&destination=${destination}&departure_at=${date}&currency=usd&limit=5&token=${API_TOKEN}`;
     const res = await fetch(url);
     if (res.ok) {
-      const json = await res.json();
+      const json = (await res.json()) as { data?: any[] };
       if (json.data && json.data.length > 0) {
         return normalizeFlights(json.data, origin, destination, date);
       }
@@ -457,7 +457,7 @@ export async function search_flights(origin: string, destination: string, depart
 
     const res = await fetch(`${BASE_FLIGHT_URL}?${qs}`, { headers: ensureHeaders() });
     if (res.ok) {
-      const json = await res.json();
+      const json = (await res.json()) as { data?: Record<string, any> };
       const flightData = json.data?.[destination] || {};
       if (Object.keys(flightData).length > 0) {
         return normalizeFlights(Object.values(flightData), origin, destination, departDate, returnDate);

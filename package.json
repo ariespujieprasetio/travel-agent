@@ -13,8 +13,8 @@
   },
   "scripts": {
     "test": "jest",
-    "run": "pnpm exec ts-node src/app.ts",
-    "start": "node src/app.js",
+    "run": "ts-node --transpile-only src/app.ts",
+    "start": "ts-node --transpile-only src/app.ts",
     "dev": "ts-node src/app.ts"
   },
   "dependencies": {
@@ -45,7 +45,7 @@
     "mammoth": "^1.9.0",
     "ms": "^2.1.3",
     "multer": "1.4.5-lts.1",
-    "node-fetch": "^3.3.2",
+    "node-fetch": "^2.7.0",
     "nodemailer": "^6.10.0",
     "openai": "^4.85.1",
     "pdf-parse": "^1.1.1",
