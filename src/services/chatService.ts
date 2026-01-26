@@ -317,51 +317,33 @@ export async function processMessage(
                       });
                       break;
 
-                    case "find_hotels":
-                      const hotels = await travelService.find_hotels(
-                        data.city,
-                        data.stars,
-                        data.checkIn,
-                        data.checkOut,
-                        data.adults || 2,
-                        data.limit || 5
-                      );
-                      toolsCalls.push({
-                        role: "tool",
-                        content:
-                          hotels.length === 0
-                            ? JSON.stringify({
-                                error:
-                                  "No hotels found for the given parameters.",
-                              })
-                            : formatHotelsList(
-                                hotels,
-                                data.city,
-                                data.checkIn,
-                                data.checkOut
-                              ),
-                        tool_call_id: toolId,
-                      });
-                      break;
+                      case "find_hotels":
+                        toolsCalls.push({
+                          role: "tool",
+                          content: JSON.stringify(
+                            await placesService.findHotels(
+                              data.city,
+                              data.stars,
+                              data.nearCBD ?? false
+                            )
+                          ),
+                          tool_call_id: toolId,
+                        });
+                        break;
 
-                    case "find_top_rated_hotels":
-                      const topHotels =
-                        await travelService.find_top_rated_hotels(
-                          data.city,
-                          data.stars,
-                          data.count || 3
-                        );
-                      toolsCalls.push({
-                        role: "tool",
-                        content: formatHotelsList(
-                          topHotels,
-                          data.city,
-                          data.checkIn,
-                          data.checkOut
-                        ),
-                        tool_call_id: toolId,
-                      });
-                      break;
+                        case "find_top_rated_hotels":
+                          toolsCalls.push({
+                            role: "tool",
+                            content: JSON.stringify(
+                              await placesService.findTopRatedHotels(
+                                data.city,
+                                data.stars,
+                                data.count || 3
+                              )
+                            ),
+                            tool_call_id: toolId,
+                          });
+                          break;
 
                     case "find_restaurants":
                       toolsCalls.push({
