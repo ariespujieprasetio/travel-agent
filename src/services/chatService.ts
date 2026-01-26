@@ -9,9 +9,11 @@ import * as placesService from "./googlePlacesService";
 import { Prisma } from "@prisma/client";
 import { generateSessionTitle } from "./titleGeneratorService";
 import { TravelMode } from "@googlemaps/google-maps-services-js";
-import * as travelService from "../config/travelpayouts";
-import { Hotel } from "../config/travelpayouts";
+// import * as travelService from "../config/travelpayouts";
+import * as travelService from "../config/travelpayouts"; // flight only
+// import { Hotel } from "../config/travelpayouts";
 import * as weatherService from "../config/weather";
+// import * as bookingService from "../config/bookingcom";
 
 /**
  * Save a message to the database
@@ -145,38 +147,40 @@ export async function getMessagesForChat(
   });
 }
 
-function formatHotelsList(
-  hotels: Hotel[],
-  city: string,
-  checkIn = "your selected dates",
-  checkOut = "your selected dates"
-) {
-  let message = `Here are some hotels available in ${city} for your stay from ${checkIn} to ${checkOut}:\n\n`;
+/**
+ * Process a user message and generate a response using OpenAI
+ */
 
-  for (const h of hotels) {
-    message += `**${h.name}**\n`;
-    message += `📍 Address: ${h.address}\n`;
-    message += `⭐ Rating: ${h.rating || "Not rated"}\n`;
+// function formatHotelsList(hotels: Hotel[], city: string, checkIn = "your selected dates", checkOut = "your selected dates") {
+//   let message = `Here are some 4-star hotels available in ${city} for your stay from ${checkIn} to ${checkOut}:\n\n`;
 
-    if (h.price_from && h.price_to) {
-      message += `💰 Price range: $${h.price_from.toFixed(
-        2
-      )} - $${h.price_to.toFixed(2)} per night\n`;
-    } else if (h.price_from) {
-      message += `💰 Price from: $${h.price_from.toFixed(2)} per night\n`;
-    }
+//   for (const h of hotels) {
+//     message += `**${h.name}**\n`;
 
-    message += `📞 Phone: ${h.phone || "Not available"}\n`;
+//     message += `📍 Address: ${h.address}\n`;
+//     message += `⭐ Rating: ${h.rating || "Not rated"}\n`;
 
-    if (h.deeplink) message += `🔗 [Website](${h.deeplink})\n`;
+//     if (h.price_from && h.price_to) {
+//       message += `💰 Price range: $${h.price_from.toFixed(2)} - $${h.price_to.toFixed(2)} per night\n`;
+//     } else if (h.price_from) {
+//       message += `💰 Price from: $${h.price_from.toFixed(2)} per night\n`;
+//     }
 
-    if (h.coords && h.coords.lat !== 0 && h.coords.lon !== 0) {
-      message += `[📍 Google Maps](https://www.google.com/maps/search/?api=1&query=${h.coords.lat},${h.coords.lon})\n`;
-    }
-    message += `\n`;
-  }
-  return message;
-}
+//     message += `📞 Phone: ${h.phone || "Not available"}\n`;
+
+//     if (h.deeplink)
+//       message += `🔗 [Website](${h.deeplink})\n`;
+
+//     if (h.coords && h.coords.lat !== 0 && h.coords.lon !== 0)
+//       message += `[📍 Google Maps](https://www.google.com/maps/search/?api=1&query=${h.coords.lat},${h.coords.lon})\n`;
+
+//     message += `\n`;
+//   }
+
+//   return message;
+// }
+
+
 
 export async function processMessage(
   sessionId: string,
@@ -316,34 +320,88 @@ export async function processMessage(
                         tool_call_id: toolId,
                       });
                       break;
-
-                      case "find_hotels":
-                        toolsCalls.push({
-                          role: "tool",
-                          content: JSON.stringify(
-                            await placesService.findHotels(
-                              data.city,
-                              data.stars,
-                              data.nearCBD ?? false
-                            )
-                          ),
-                          tool_call_id: toolId,
-                        });
-                        break;
-
-                        case "find_top_rated_hotels":
+                      case "find_hotels": {
+                        const hotels = await placesService.findHotels(
+                          data.city,
+                          data.stars || 4,
+                          data.nearCBD ?? false
+                        );
+                      
+                        if (!hotels.length) {
                           toolsCalls.push({
                             role: "tool",
-                            content: JSON.stringify(
-                              await placesService.findTopRatedHotels(
-                                data.city,
-                                data.stars,
-                                data.count || 3
-                              )
-                            ),
+                            content: "No hotels found.",
                             tool_call_id: toolId,
                           });
                           break;
+                        }
+                      
+                        const hotelMessage = hotels.map(h => {
+                          const bookingSearchQuery = `${h.displayName.text}, ${data.city}`;
+                      
+                          const deeplink = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(
+                            bookingSearchQuery
+                          )}&checkin=${data.checkIn}&checkout=${data.checkOut}&group_adults=${data.adults || 2}&nflt=class=${data.stars || 4}`;
+                      
+                          return `
+                      **${h.displayName.text}**
+                      ⭐ Rating: ${h.rating ?? "-"}
+                      📍 ${h.formattedAddress}
+                      🗺️ ${h.googleMapsUri}
+                      🔗 Book on Booking.com:
+                      ${deeplink}
+                      `;
+                        }).join("\n");
+                      
+                        toolsCalls.push({
+                          role: "tool",
+                          content: hotelMessage,
+                          tool_call_id: toolId,
+                        });
+                        break;
+                      }
+                                        
+
+                      case "find_top_rated_hotels": {
+                        const hotels = await placesService.findTopRatedHotels(
+                          data.city,
+                          data.stars || 4,
+                          data.count || 3
+                        );
+                      
+                        if (!hotels.length) {
+                          toolsCalls.push({
+                            role: "tool",
+                            content: "No top-rated hotels found.",
+                            tool_call_id: toolId,
+                          });
+                          break;
+                        }
+                      
+                        const msg = hotels.map(h => {
+                          const bookingQuery = `${h.displayName.text}, ${data.city}`;
+                      
+                          const deeplink = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(
+                            bookingQuery
+                          )}&checkin=${data.checkIn}&checkout=${data.checkOut}&group_adults=${data.adults || 2}&nflt=class=${data.stars || 4}`;
+                      
+                          return `
+                      **${h.displayName.text}**
+                      ⭐ Rating: ${h.rating ?? "-"}
+                      📍 ${h.formattedAddress}
+                      🔗 Book on Booking.com:
+                      ${deeplink}
+                      `;
+                        }).join("\n");
+                      
+                        toolsCalls.push({
+                          role: "tool",
+                          content: msg,
+                          tool_call_id: toolId,
+                        });
+                        break;
+                      }
+                                                                    
 
                     case "find_restaurants":
                       toolsCalls.push({
@@ -386,7 +444,26 @@ export async function processMessage(
                         tool_call_id: toolId,
                       });
                       break;
+                      case "find_top_rated_hotels":
+                      const topHotels = await travelService.find_top_rated_hotels(
+                        data.city,
+                        data.stars,
+                        data.count || 3
+                      );
 
+                      // const topHotelMessage = formatHotelsList(
+                      //   topHotels,
+                      //   data.city,
+                      //   data.checkIn,
+                      //   data.checkOut
+                      // );
+
+                      // toolsCalls.push({
+                      //   role: "tool",
+                      //   content: topHotelMessage,
+                      //   tool_call_id: toolId,
+                      // });
+                      // break;
                     case "find_top_rated_restaurants":
                       toolsCalls.push({
                         role: "tool",
