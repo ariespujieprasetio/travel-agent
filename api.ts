@@ -28,10 +28,43 @@ const openai = new OpenAI({
 import { google } from "googleapis";
 import * as fs from "fs";
 import { start } from "repl";
-const places = google.places({
-    version: "v1",
-    auth: process.env.GOOGLE_API_KEY,
-});
+const places = google.places("v1");
+
+async function searchPlaces(
+    textQuery: string,
+    maxResultCount: number
+  ): Promise<Place[]> {
+  
+    const res = await fetch(
+      "https://places.googleapis.com/v1/places:searchText",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": process.env.GOOGLE_API_KEY!,
+          "X-Goog-FieldMask": fields,
+        },
+        body: JSON.stringify({
+          textQuery,
+          maxResultCount,
+        }),
+      }
+    );
+  
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Google Places failed: ${res.status} ${text}`);
+    }
+  
+    const data = await res.json();
+  
+    if (!data.places || data.places.length === 0) {
+      throw new Error("No places found");
+    }
+  
+    return data.places as Place[];
+  }
+  
 
 const fields = [
     "places.displayName",
@@ -614,112 +647,111 @@ httpServer.listen(PORT, () => {
 
 
 
-async function find_hotels(city: string, stars: number): Promise<Place[]> {
-    // Call the Google Places API to find hotels in the specified city
-    // with a minimum number of stars
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${stars} stars hotel in ${city}`,
-            maxResultCount: 5,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-async function find_restaurants(city: string, cuisine: string, count: number = 3): Promise<Place[]> {
-    // Call the Google Places API to find restaurants of a specific cuisine in the specified city
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${cuisine} restaurants in ${city}`,
-            maxResultCount: count,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-async function find_nightlife(city: string, type: string, count: number = 3): Promise<Place[]> {
-    // Call the Google Places API to find nightlife venues in the specified city
-    // type can be "bar", "night club", "lounge", etc.
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${type} in ${city}`,
-            maxResultCount: count,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-async function find_meeting_venues(city: string, type: string, count: number = 3): Promise<Place[]> {
-    // Call the Google Places API to find meeting venues in the specified city
-    // type can be "conference center", "meeting room", "co-working space", etc.
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${type} in ${city}`,
-            maxResultCount: count,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-async function find_travel_destinations(city: string, count: number): Promise<Place[]> {
-    // Call the Google Places API to find tourist attractions in the specified city
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `tourist attractions in ${city}`,
-            maxResultCount: count,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-// Helper function to get places with specific ratings
-async function find_places_by_rating(city: string, type: string, minRating: number = 4.0, count: number = 3): Promise<Place[]> {
-    // Call the Google Places API to find places of a specific type with minimum rating
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${type} in ${city}`,
-            maxResultCount: count * 2, // Fetch more to filter by rating
-        },
-    });
-
-    let placesData = data.data.places! as Place[];
-
-    // Filter by rating and sort by highest rating
-    placesData = placesData
-        .filter(place => place.rating && place.rating >= minRating)
-        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-        .slice(0, count);
-
-    return placesData;
-}
-
-// Specialized function for finding top-rated hotels
-async function find_top_rated_hotels(city: string, stars: number, count: number = 3): Promise<Place[]> {
-    return find_places_by_rating(city, `${stars} stars hotel`, 4.0, count);
-}
-
-// Specialized function for finding top-rated restaurants by cuisine
-async function find_top_rated_restaurants(city: string, cuisine: string, count: number = 3): Promise<Place[]> {
+/**
+ * === HOTELS ===
+ */
+async function find_hotels(
+    city: string,
+    stars: number
+  ): Promise<Place[]> {
+    return searchPlaces(`${stars} star hotel in ${city}`, 5);
+  }
+  
+  /**
+   * === RESTAURANTS ===
+   */
+  async function find_restaurants(
+    city: string,
+    cuisine: string,
+    count: number = 3
+  ): Promise<Place[]> {
+    return searchPlaces(`${cuisine} restaurant in ${city}`, count);
+  }
+  
+  /**
+   * === NIGHTLIFE ===
+   */
+  async function find_nightlife(
+    city: string,
+    type: string,
+    count: number = 3
+  ): Promise<Place[]> {
+    return searchPlaces(`${type} in ${city}`, count);
+  }
+  
+  /**
+   * === MEETING VENUES ===
+   */
+  async function find_meeting_venues(
+    city: string,
+    type: string,
+    count: number = 3
+  ): Promise<Place[]> {
+    return searchPlaces(`${type} in ${city}`, count);
+  }
+  
+  /**
+   * === TOURIST ATTRACTIONS ===
+   */
+  async function find_travel_destinations(
+    city: string,
+    count: number
+  ): Promise<Place[]> {
+    return searchPlaces(`tourist attractions in ${city}`, count);
+  }
+  
+  /**
+   * === GENERIC RATING FILTER ===
+   */
+  async function find_places_by_rating(
+    city: string,
+    type: string,
+    minRating: number = 4.0,
+    count: number = 3
+  ): Promise<Place[]> {
+  
+    const placesData = await searchPlaces(
+      `${type} in ${city}`,
+      count * 2 // ambil lebih banyak buat difilter
+    );
+  
+    return placesData
+      .filter(p => typeof p.rating === "number" && p.rating >= minRating)
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+      .slice(0, count);
+  }
+  
+  /**
+   * === TOP RATED VARIANTS ===
+   * (tidak langsung call Google, reuse helper di atas)
+   */
+  async function find_top_rated_hotels(
+    city: string,
+    stars: number,
+    count: number = 3
+  ): Promise<Place[]> {
+    return find_places_by_rating(city, `${stars} star hotel`, 4.0, count);
+  }
+  
+  async function find_top_rated_restaurants(
+    city: string,
+    cuisine: string,
+    count: number = 3
+  ): Promise<Place[]> {
     return find_places_by_rating(city, `${cuisine} restaurant`, 4.0, count);
-}
-
-// Specialized function for finding top-rated meeting venues
-async function find_top_rated_meeting_venues(city: string, type: string, count: number = 3): Promise<Place[]> {
-    return find_places_by_rating(city, `${type}`, 4.0, count);
-}
-
-// Specialized function for finding top-rated tourist attractions
-async function find_top_rated_attractions(city: string, count: number = 5): Promise<Place[]> {
+  }
+  
+  async function find_top_rated_meeting_venues(
+    city: string,
+    type: string,
+    count: number = 3
+  ): Promise<Place[]> {
+    return find_places_by_rating(city, type, 4.0, count);
+  }
+  
+  async function find_top_rated_attractions(
+    city: string,
+    count: number = 5
+  ): Promise<Place[]> {
     return find_places_by_rating(city, "tourist attraction", 4.0, count);
-}
+  }

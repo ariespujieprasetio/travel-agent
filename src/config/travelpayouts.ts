@@ -15,7 +15,7 @@ if (!API_TOKEN) {
   throw new Error("TRAVELPAYOUTS_API_TOKEN is not set in your .env file");
 }
 
-const BASE_HOTEL_URL = "https://engine.hotellook.com/api/v2";
+const BASE_HOTEL_URL = "https://engine.hotellook.com/api";
 const BASE_FLIGHT_URL = "https://api.travelpayouts.com/v1/prices/cheap";
 const BASE_FLIGHT_CACHE_URL = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 
@@ -60,6 +60,11 @@ function addDays(base: Date, days: number) {
 //--------------------------------------------------------------
 // 1) HOTEL SEARCH (HotelLook → Redirect ke Booking.com)
 //--------------------------------------------------------------
+
+function normalizeCity(city: string) {
+  return city.split(",")[0].trim();
+}
+
 export async function find_hotels(
   city: string,
   stars: number,
@@ -70,7 +75,7 @@ export async function find_hotels(
 ): Promise<Hotel[]> {
   try {
     const qs = new URLSearchParams();
-    qs.append("location", city);
+    qs.append("location", normalizeCity(city));
     qs.append("checkIn", checkIn);
     qs.append("checkOut", checkOut);
     qs.append("currency", "usd");
@@ -157,7 +162,7 @@ export async function search_hotels(
 ): Promise<Hotel[]> {
   try {
     const qs = new URLSearchParams();
-    qs.append("location", city);
+    qs.append("location", normalizeCity(city));
     qs.append("checkIn", checkIn);
     qs.append("checkOut", checkOut);
     qs.append("currency", "usd");
@@ -527,4 +532,3 @@ export async function find_car_rentals(
 
   return rentals;
 }
-
