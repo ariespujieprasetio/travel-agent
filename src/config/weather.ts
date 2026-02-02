@@ -1,30 +1,69 @@
-import axios from 'axios';
+import axios from "axios";
 
-// URL for OpenWeather API
-const OPENWEATHER_API_URL = 'https://api.openweathermap.org/data/2.5/weather';
+const OPENWEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather";
 
-// Function to get weather information for a given city
-export async function getWeather(city: string): Promise<string> {
-  const apiKey = process.env.OPENWEATHER_API_KEY; // Ensure the API key is in the .env file
-  if (!apiKey) {
-    throw new Error('OPENWEATHER_API_KEY not found!');
-  }
+export async function getWeather(city: string) {
+  const apiKey = process.env.OPENWEATHER_API_KEY;
+  if (!apiKey) throw new Error("OPENWEATHER_API_KEY not found!");
 
-  try {
-    const response = await axios.get(OPENWEATHER_API_URL, {
-      params: {
-        q: city,
-        appid: apiKey,
-        units: 'metric', 
+  console.log("🌤️ Fetching weather for:", city);
+
+  const response = await axios.get(OPENWEATHER_API_URL, {
+    params: {
+      q: city,
+      appid: apiKey,
+      units: "metric",
+      lang: "en",
+    },
+  });
+
+  const d = response.data;
+
+  return {
+    location: {
+      city: d.name,
+      country: d.sys.country,
+      coordinates: {
+        lat: d.coord.lat,
+        lon: d.coord.lon,
       },
-    });
+      timezone_offset_sec: d.timezone,
+    },
 
-    const data = response.data;
-    const weatherDescription = data.weather[0].description;
-    const temperature = data.main.temp;
-    return `The weather in ${city} is currently ${weatherDescription} with a temperature of ${temperature}°C.`;
-  } catch (error) {
-    console.error('Error fetching weather data:', error);
-    return 'Unable to fetch weather data at the moment.';
-  }
+    weather: {
+      main: d.weather[0].main,
+      description: d.weather[0].description,
+      icon: d.weather[0].icon,
+    },
+
+    temperature: {
+      current_c: d.main.temp,
+      feels_like_c: d.main.feels_like,
+      min_c: d.main.temp_min,
+      max_c: d.main.temp_max,
+    },
+
+    atmosphere: {
+      humidity_percent: d.main.humidity,
+      pressure_hpa: d.main.pressure,
+      sea_level_hpa: d.main.sea_level ?? null,
+      ground_level_hpa: d.main.grnd_level ?? null,
+      cloud_coverage_percent: d.clouds.all,
+      visibility_km: d.visibility / 1000,
+    },
+
+    wind: {
+      speed_mps: d.wind.speed,
+      direction_deg: d.wind.deg,
+    },
+
+    sun: {
+      sunrise_unix: d.sys.sunrise,
+      sunset_unix: d.sys.sunset,
+    },
+
+    meta: {
+      data_calculated_at_unix: d.dt,
+    },
+  };
 }
