@@ -526,15 +526,27 @@ export async function processMessage(
                         });
                         break;
 
-                    case "get_weather":
-                      toolsCalls.push({
-                        role: "tool",
-                        content: JSON.stringify(
-                          await weatherService.getWeather(data.city)
-                        ),
-                        tool_call_id: toolId,
-                      });
-                      break;
+                        case "get_weather": {
+                          const weatherPayload = await weatherService.getWeather(data.city);
+                        
+                          console.log("🌦 Weather payload sent to AI:", {
+                            city: weatherPayload.location.city,
+                            hasForecast: !!weatherPayload.forecast_summary?.length,
+                            hasAlerts: !!weatherPayload.alerts?.length,
+                            hasInsights: !!weatherPayload.insights,
+                          });
+                        
+                          toolsCalls.push({
+                            role: "tool",
+                            content: JSON.stringify({
+                              type: "weather_report",
+                              ...weatherPayload,
+                            }),
+                            tool_call_id: toolId,
+                          });
+                        
+                          break;
+                        }
 
                     default:
                       toolsCalls.push({
