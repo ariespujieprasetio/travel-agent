@@ -14,6 +14,11 @@ import * as travelService from "../config/travelpayouts"; // flight only
 // import { Hotel } from "../config/travelpayouts";
 import * as weatherService from "../config/weather";
 // import * as bookingService from "../config/bookingcom";
+import { fetchHolidays } from "./holidayService";
+import { getHolidaysInRange, formatHolidaySummary } from "../utils/holidayUtils";
+// import { getCountryCodeFromCity } from "./locationService";
+import { resolveCountryCode } from "./locationService";
+
 
 /**
  * Save a message to the database
@@ -147,6 +152,82 @@ export async function getMessagesForChat(
   });
 }
 
+function parseDates(text: string): { start: string; end: string } | null {
+  const isoMatches = text.match(/\d{4}-\d{2}-\d{2}/g);
+  if (isoMatches) {
+    return {
+      start: isoMatches[0],
+      end: isoMatches[1] || isoMatches[0],
+    };
+  }
+
+  const rangeMatch = text.match(/(\d{1,2})\s*-\s*(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/i);
+  if (rangeMatch) {
+    const [, d1, d2, monthName, year] = rangeMatch;
+
+    const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth() + 1;
+    const pad = (n: string | number) => String(n).padStart(2, "0");
+
+    return {
+      start: `${year}-${pad(monthIndex)}-${pad(d1)}`,
+      end: `${year}-${pad(monthIndex)}-${pad(d2)}`,
+    };
+  }
+
+  return null;
+}
+
+async function buildHolidayContext(message: string) {
+  console.log("🧠 Holiday context raw message:", message);
+
+  const parsedDates = parseDates(message);
+  console.log("📅 Parsed dates:", parsedDates);
+
+  if (!parsedDates) {
+    console.log("❌ No valid dates detected");
+    return null;
+  }
+
+  const { start: startDate, end: endDate } = parsedDates;
+  console.log("📅 Using date range:", startDate, "→", endDate);
+
+  const cityMatch =
+    message.match(/to\s+([A-Za-z\s]+)/i) ||
+    message.match(/in\s+([A-Za-z\s]+)/i) ||
+    message.match(/visit\s+([A-Za-z\s]+)/i);
+
+  console.log("🌍 City match result:", cityMatch);
+
+  if (!cityMatch) {
+    console.log("❌ No city detected in message");
+    return null;
+  }
+
+  const city = cityMatch[1].trim();
+  console.log("🏙 Detected city:", city);
+
+  const countryCode = await resolveCountryCode(city);
+  console.log("🏳️ Country code from geocoding:", countryCode);
+
+  if (!countryCode) {
+    console.log("❌ Could not determine country code");
+    return null;
+  }
+
+  const year = new Date(startDate).getFullYear();
+  console.log("📆 Fetching holidays for year:", year);
+
+  const holidays = await fetchHolidays(countryCode, year);
+  console.log("🎉 Total holidays from API:", holidays.length);
+
+  const filtered = getHolidaysInRange(holidays, startDate, endDate);
+  console.log("🎯 Holidays within trip range:", filtered.length);
+
+  const summary = formatHolidaySummary(filtered);
+  console.log("🧾 Final holiday summary:", summary);
+
+  return summary;
+}
 /**
  * Process a user message and generate a response using OpenAI
  */
@@ -192,8 +273,9 @@ export async function processMessage(
     if (history.length === 0) {
       const systemMessage: ChatCompletionMessageParam = {
         role: "system",
-        content: getSystemPrompt(),
+        content: getSystemPrompt(), 
       };
+    
       await saveMessage(sessionId, systemMessage);
       history = [systemMessage];
     }
@@ -204,6 +286,28 @@ export async function processMessage(
     };
     await saveMessage(sessionId, userMessage);
     history.push(userMessage);
+
+    const fullConversationText = history
+    .filter(m => m.role === "user" && typeof m.content === "string")
+    .map(m => m.content)
+    .join(" ");
+
+    console.log("🧩 Full conversation for holiday detection:", fullConversationText);
+
+    const holidaySummary =
+    (await buildHolidayContext(fullConversationText)) ||
+    "No major national public holidays are typically observed during these dates.";
+
+    history.unshift({
+      role: "system",
+      content: `
+    ### VERIFIED TRAVEL CONTEXT (INTERNAL DATA)
+    
+    The following holiday information is confirmed and MUST be shown to the user in the "National holidays" section.
+    
+    ${holidaySummary}
+    `.trim(),
+    });
 
     while (true) {
       const completion = await openai.chat.completions.create({
@@ -226,7 +330,11 @@ export async function processMessage(
       for await (const chunk of completion) {
         const delta = chunk.choices[0]?.delta;
 
-        if (delta.tool_calls) toolCallStarted = true;
+        if (delta.tool_calls && !toolCallStarted) {
+          toolCallStarted = true;
+          emit(`msg-${sessionId}`, "__LOADING__");
+        }
+        
         if (!toolCallStarted && delta.content) {
           emit(`msg-${sessionId}`, delta.content);
           acc += delta.content;
@@ -444,12 +552,26 @@ export async function processMessage(
                         tool_call_id: toolId,
                       });
                       break;
-                      case "find_top_rated_hotels":
-                      const topHotels = await travelService.find_top_rated_hotels(
-                        data.city,
-                        data.stars,
-                        data.count || 3
-                      );
+
+                    case "find_local_events":
+                      toolsCalls.push({
+                        role: "tool",
+                        content: JSON.stringify(
+                          await placesService.findLocalEvents(
+                            data.city,
+                            data.count || 5
+                          )
+                        ),
+                        tool_call_id: toolId,
+                      });
+                      break;
+
+                    case "find_top_rated_hotels":
+                    const topHotels = await travelService.find_top_rated_hotels(
+                      data.city,
+                      data.stars,
+                      data.count || 3
+                    );
 
                       // const topHotelMessage = formatHotelsList(
                       //   topHotels,

@@ -234,6 +234,41 @@ export async function findTopRatedAttractions(
   return findPlacesByRating(city, "tourist attraction", 4.0, count);
 }
 
+export async function findLocalEvents(
+  city: string,
+  month?: string,
+  count: number = 5
+): Promise<Place[]> {
+
+  const queries = [
+    `festival in ${city} ${month ?? ""}`,
+    `concert in ${city} ${month ?? ""}`,
+    `music festival in ${city}`,
+    `cultural event in ${city} ${month ?? ""}`,
+    `exhibition in ${city} ${month ?? ""}`
+  ];
+
+  let results: Place[] = [];
+
+  for (const q of queries) {
+    const res = await searchPlaces(q.trim(), count);
+    results = results.concat(res);
+  }
+
+  const filtered = results.filter(p =>
+    p.displayName?.text &&
+    !/wedding|venue|hall|ballroom|resort|hotel/i.test(p.displayName.text)
+  );
+
+  const unique = new Map<string, Place>();
+  for (const p of filtered) {
+    const key = `${p.displayName?.text}-${p.formattedAddress}`;
+    if (!unique.has(key)) unique.set(key, p);
+  }
+
+  return Array.from(unique.values()).slice(0, count);
+}
+
 /* ======================================================
    DISTANCE MATRIX (UNCHANGED)
 ====================================================== */

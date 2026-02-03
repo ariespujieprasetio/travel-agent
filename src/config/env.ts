@@ -11,6 +11,9 @@ export const config = {
   google: {
     apiKey: process.env.GOOGLE_API_KEY || "",
   },
+  calendarific: {                      
+    apiKey: process.env.CALENDARIFIC_API_KEY || "",
+  },
   jwt: {
     secret: process.env.JWT_SECRET || "default-secret-key-change-in-production",
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
@@ -42,6 +45,7 @@ export function validateEnv() {
   const requiredEnvVars = [
     "OPENAI_API_KEY", 
     "GOOGLE_API_KEY", 
+    "CALENDARIFIC_API_KEY",
     "DATABASE_URL", 
     "JWT_SECRET"
   ];

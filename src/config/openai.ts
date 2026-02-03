@@ -121,6 +121,23 @@ export const tools: ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "find_local_events",
+      description: "Find major local event venues and festival locations in a city",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string" },
+          count: { type: "number", default: 5 }
+        },
+        required: ["city"],
+        additionalProperties: false
+      }
+    }
+  },
+
+  {
+    type: "function",
+    function: {
       name: "search_flights",
       description: "Search available flights between two locations for given dates",
       parameters: {
