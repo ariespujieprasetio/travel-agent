@@ -14,10 +14,6 @@ export interface DisasterAlert {
   };
 }
 
-/**
- * GDACS active disasters GeoJSON feed
- * Contains worldwide active events → we filter by ISO3 ourselves
- */
 const GDACS_FEED = "https://www.gdacs.org/xml/gdacs.geojson";
 
 export async function fetchDisasterAlertsByCountry(
@@ -61,7 +57,6 @@ export async function fetchDisasterAlertsByCountry(
         const start = new Date(event.startDate);
         const end = event.endDate ? new Date(event.endDate) : null;
 
-        // Keep events that are still active OR started within last 7 days
         return (
           (end && end >= now) ||
           (!end && now.getTime() - start.getTime() < 7 * 24 * 60 * 60 * 1000)
@@ -73,9 +68,6 @@ export async function fetchDisasterAlertsByCountry(
   }
 }
 
-/**
- * Convert severity into traveler-friendly messaging
- */
 export function mapDisasterSeverityToMessage(alert: DisasterAlert): string {
   switch (alert.severity) {
     case "Red":
@@ -92,9 +84,6 @@ export function mapDisasterSeverityToMessage(alert: DisasterAlert): string {
   }
 }
 
-/**
- * Build final news-style summary for Step 2 "Travel News"
- */
 export function buildDisasterNewsSummary(alerts: DisasterAlert[]): string {
   if (!alerts.length) {
     return "No major travel disruptions or safety advisories are widely reported at this time.";

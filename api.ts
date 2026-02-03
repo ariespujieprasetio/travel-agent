@@ -9,10 +9,8 @@ import {
     FunctionParameters,
 } from "openai/resources";
 
-// Load environment variables from .env file
 dotenv.config();
 
-// Ensure the API key is available
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
     console.error(
@@ -122,7 +120,7 @@ interface Place {
     location: Location;
     rating: number;
     googleMapsUri: string;
-    websiteUri?: string; // Optional, in case some places don’t have a website
+    websiteUri?: string; 
     displayName: DisplayName;
 }
 
@@ -373,12 +371,11 @@ const io = new Server(httpServer);
 
 const maps = new Map<number, ChatCompletionMessageParam[]>();
 
-// Function to add a message to a specific key
 function addMessage(key: number, message: ChatCompletionMessageParam) {
     if (!maps.has(key)) {
         maps.set(key, []); // Initialize an empty array if the key does not exist
     }
-    maps.get(key)!.push(message); // Add message to the array
+    maps.get(key)!.push(message); 
 
 }
 
@@ -386,7 +383,7 @@ async function doInitChat(key: number, emit: (topic: string, data: string) => {}
     const history = maps.get(key)!;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o", // Ensure the model name is correct
+        model: "gpt-4o", 
         messages: history,
         tools: tools,
         temperature: 0,
@@ -424,7 +421,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
     const history = maps.get(key)!;
 
-    // Optional: jika system prompt tidak ditemukan di awal, tambahkan
     if (!history.find(h => h.role === 'system')) {
         history.unshift({ role: 'system', content: sysprompt });
     }
@@ -436,7 +432,7 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
         while (true) {
 
             const completion = await openai.chat.completions.create({
-                model: "gpt-4o", // Ensure the model name is correct
+                model: "gpt-4o", 
                 messages: history,
                 tools: tools,
                 temperature: 0,

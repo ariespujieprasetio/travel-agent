@@ -26,15 +26,10 @@ async function resolveCountryFromGeoNames(city: string): Promise<string | null> 
   
     return null;
   }  
-  
 
-/**
- * Resolve country ISO2 code from city or country name
- */
 export async function resolveCountryCode(location: string): Promise<string | null> {
     const query = location.trim();
   
-    // 1️⃣ Google Geocode
     try {
       const geo = await axios.get(
         "https://maps.googleapis.com/maps/api/geocode/json",
@@ -56,18 +51,15 @@ export async function resolveCountryCode(location: string): Promise<string | nul
       console.error("Geocode lookup failed:", e);
     }
   
-    // 2️⃣ GeoNames fallback (GLOBAL city database)
     const geoNamesResult = await resolveCountryFromGeoNames(query);
     if (geoNamesResult) return geoNamesResult;
   
-    // 3️⃣ Direct country name
     const isoDirect = countries.getAlpha2Code(query, "en");
     if (isoDirect) {
       console.log("🌎 Resolved via ISO country list:", isoDirect);
       return isoDirect;
     }
   
-    // 4️⃣ Last word country
     const parts = query.split(" ");
     const lastWord = parts[parts.length - 1];
     const isoFromLastWord = countries.getAlpha2Code(lastWord, "en");
@@ -80,9 +72,6 @@ export async function resolveCountryCode(location: string): Promise<string | nul
     return null;
   }  
 
-/**
- * Convert ISO2 ➜ ISO3 (needed for GDACS disaster API)
- */
 export function convertIso2ToIso3(iso2: string | null): string | null {
   if (!iso2) return null;
 

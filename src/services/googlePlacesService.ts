@@ -1,11 +1,6 @@
 import { config } from "../config/env";
 import { Client, TravelMode } from "@googlemaps/google-maps-services-js";
 
-/* ======================================================
-   GOOGLE PLACES API v1 — CORE HELPER
-====================================================== */
-
-// Field mask
 const fields = [
   "places.displayName",
   "places.formattedAddress",
@@ -56,10 +51,6 @@ async function searchPlaces(
   return data.places as Place[];
 }
 
-/* ======================================================
-   TYPES
-====================================================== */
-
 export interface Location {
   latitude: number;
   longitude: number;
@@ -86,10 +77,6 @@ export interface Place {
   driverAvailability?: string;
 }
 
-/* ======================================================
-   UTILS
-====================================================== */
-
 export function haversine(
   lat1: number,
   lon1: number,
@@ -110,10 +97,6 @@ export function haversine(
 
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
-
-/* ======================================================
-   PLACES FUNCTIONS (REFRACTORED)
-====================================================== */
 
 export async function findHotels(
   city: string,
@@ -183,10 +166,6 @@ Peta: ${p.googleMapsUri || "-"}`
     )
     .join("\n\n");
 }
-
-/* ======================================================
-   TOP RATED
-====================================================== */
 
 async function findPlacesByRating(
   city: string,
@@ -269,10 +248,6 @@ export async function findLocalEvents(
   return Array.from(unique.values()).slice(0, count);
 }
 
-/* ======================================================
-   DISTANCE MATRIX (UNCHANGED)
-====================================================== */
-
 export interface RouteSegment {
   origin: string;
   destination: string;
@@ -335,19 +310,10 @@ export async function calculateTotalRouteDistance(
   };
 }
 
-/**
- * Central Business Districts HashMap Implementation
- * 
- * This implementation creates a comprehensive mapping of cities to their
- * respective business districts as extracted from the Wikipedia data.
- * Data is organized by continent and city, facilitating efficient lookups.
- */
-
 interface CityBusinessDistricts {
   [city: string]: string[];
 }
 
-// Main data structure: HashMap mapping cities to their business districts
 const centralBusinessDistricts: CityBusinessDistricts = {
   // Africa
   "Abidjan": ["Le Plateau"],

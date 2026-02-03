@@ -4,12 +4,10 @@ import { ChatCompletionTool } from "openai/resources";
 import * as fs from "fs";
 import path from "path";
 
-// Initialize OpenAI client
 export const openai = new OpenAI({
   apiKey: config.openai.apiKey,
 });
 
-// Define the tools
 export const tools: ChatCompletionTool[] = [
   {
     type: "function",

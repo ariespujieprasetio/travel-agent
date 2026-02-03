@@ -19,9 +19,6 @@ const BASE_HOTEL_URL = "https://engine.hotellook.com/api";
 const BASE_FLIGHT_URL = "https://api.travelpayouts.com/v1/prices/cheap";
 const BASE_FLIGHT_CACHE_URL = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 
-//--------------------------------------------------------------
-// Types
-//--------------------------------------------------------------
 interface Coordinates {
   lat: number;
   lon: number;
@@ -38,9 +35,6 @@ export interface Hotel {
   deeplink?: string;
 }
 
-//--------------------------------------------------------------
-// Helpers
-//--------------------------------------------------------------
 function ensureHeaders() {
   return { "X-Access-Token": API_TOKEN } as Record<string, string>;
 }
@@ -56,10 +50,6 @@ function addDays(base: Date, days: number) {
   d.setDate(d.getDate() + days);
   return d.toISOString().split("T")[0];
 }
-
-//--------------------------------------------------------------
-// 1) HOTEL SEARCH (HotelLook → Redirect ke Booking.com)
-//--------------------------------------------------------------
 
 function normalizeCity(city: string) {
   return city.split(",")[0].trim();

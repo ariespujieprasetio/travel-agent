@@ -258,42 +258,6 @@ async function buildNewsContext(message: string) {
   return buildDisasterNewsSummary(alerts);
 }
 
-
-/**
- * Process a user message and generate a response using OpenAI
- */
-
-// function formatHotelsList(hotels: Hotel[], city: string, checkIn = "your selected dates", checkOut = "your selected dates") {
-//   let message = `Here are some 4-star hotels available in ${city} for your stay from ${checkIn} to ${checkOut}:\n\n`;
-
-//   for (const h of hotels) {
-//     message += `**${h.name}**\n`;
-
-//     message += `📍 Address: ${h.address}\n`;
-//     message += `⭐ Rating: ${h.rating || "Not rated"}\n`;
-
-//     if (h.price_from && h.price_to) {
-//       message += `💰 Price range: $${h.price_from.toFixed(2)} - $${h.price_to.toFixed(2)} per night\n`;
-//     } else if (h.price_from) {
-//       message += `💰 Price from: $${h.price_from.toFixed(2)} per night\n`;
-//     }
-
-//     message += `📞 Phone: ${h.phone || "Not available"}\n`;
-
-//     if (h.deeplink)
-//       message += `🔗 [Website](${h.deeplink})\n`;
-
-//     if (h.coords && h.coords.lat !== 0 && h.coords.lon !== 0)
-//       message += `[📍 Google Maps](https://www.google.com/maps/search/?api=1&query=${h.coords.lat},${h.coords.lon})\n`;
-
-//     message += `\n`;
-//   }
-
-//   return message;
-// }
-
-
-
 export async function processMessage(
   sessionId: string,
   message: string,
@@ -613,19 +577,6 @@ export async function processMessage(
                       data.count || 3
                     );
 
-                      // const topHotelMessage = formatHotelsList(
-                      //   topHotels,
-                      //   data.city,
-                      //   data.checkIn,
-                      //   data.checkOut
-                      // );
-
-                      // toolsCalls.push({
-                      //   role: "tool",
-                      //   content: topHotelMessage,
-                      //   tool_call_id: toolId,
-                      // });
-                      // break;
                     case "find_top_rated_restaurants":
                       toolsCalls.push({
                         role: "tool",
@@ -675,7 +626,6 @@ export async function processMessage(
                           break;
                         }
                       
-                        // ✅ Only run if Step 9 is reached
                         toolsCalls.push({
                           role: "tool",
                           content: JSON.stringify(
