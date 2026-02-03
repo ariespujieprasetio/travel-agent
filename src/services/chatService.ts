@@ -18,6 +18,11 @@ import { fetchHolidays } from "./holidayService";
 import { getHolidaysInRange, formatHolidaySummary } from "../utils/holidayUtils";
 // import { getCountryCodeFromCity } from "./locationService";
 import { resolveCountryCode } from "./locationService";
+import {
+  fetchDisasterAlertsByCountry,
+  buildDisasterNewsSummary,
+} from "./disasterService";
+import { convertIso2ToIso3 } from "./locationService";
 
 
 /**
@@ -228,6 +233,32 @@ async function buildHolidayContext(message: string) {
 
   return summary;
 }
+
+async function buildNewsContext(message: string) {
+  const parsedDates = parseDates(message);
+  if (!parsedDates) return null;
+
+  const cityMatch =
+    message.match(/to\s+([A-Za-z\s]+)/i) ||
+    message.match(/in\s+([A-Za-z\s]+)/i) ||
+    message.match(/visit\s+([A-Za-z\s]+)/i);
+
+  if (!cityMatch) return null;
+
+  const city = cityMatch[1].trim();
+  const iso2 = await resolveCountryCode(city);
+  if (!iso2) return null;
+
+  const iso3 = convertIso2ToIso3(iso2);
+  if (!iso3) return null;
+
+  console.log("📰 Fetching disaster alerts for:", iso3);
+
+  const alerts = await fetchDisasterAlertsByCountry(iso3);
+  return buildDisasterNewsSummary(alerts);
+}
+
+
 /**
  * Process a user message and generate a response using OpenAI
  */
@@ -298,16 +329,25 @@ export async function processMessage(
     (await buildHolidayContext(fullConversationText)) ||
     "No major national public holidays are typically observed during these dates.";
 
+    const newsSummary =
+    (await buildNewsContext(fullConversationText)) ||
+    "No major travel disruptions or safety advisories are widely reported at this time.";
+
+
     history.unshift({
       role: "system",
       content: `
     ### VERIFIED TRAVEL CONTEXT (INTERNAL DATA)
     
-    The following holiday information is confirmed and MUST be shown to the user in the "National holidays" section.
+    The following information is verified and MUST be reflected in the travel context sections.
     
+    NATIONAL HOLIDAYS:
     ${holidaySummary}
+    
+    TRAVEL SAFETY & DISASTER ALERTS:
+    ${newsSummary}
     `.trim(),
-    });
+    });    
 
     while (true) {
       const completion = await openai.chat.completions.create({
