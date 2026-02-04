@@ -1,10 +1,3 @@
-// travelpayouts.ts — Velutara Final Edition
-// -------------------------------------------------------------
-// Hotel API : hotellook (engine.hotellook.com)
-// Flight API: /v1/prices/cheap (primary), fallback to /aviasales/v3/prices_for_dates
-// CarRent   : placeholder (TP doesn’t provide; you can swap later)
-// -------------------------------------------------------------
-
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 
@@ -111,7 +104,6 @@ export async function find_hotels(
         price_from: detail.priceFrom || detail.price || 0,
         price_to: detail.priceTo || undefined,
         phone: detail.phone || "Phone not available",
-        // 🔗 Redirect langsung ke Booking.com
         deeplink: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(
           city
         )}&checkin=${checkIn}&checkout=${checkOut}&group_adults=${adults}&nflt=class=${stars}`,
@@ -125,9 +117,6 @@ export async function find_hotels(
   }
 }
 
-/**
- * Ambil hotel top rated
- */
 export async function find_top_rated_hotels(
   city: string,
   stars: number,
@@ -139,9 +128,6 @@ export async function find_top_rated_hotels(
     .slice(0, count);
 }
 
-//--------------------------------------------------------------
-// 1b) HOTEL SEARCH with merged details
-//--------------------------------------------------------------
 export async function search_hotels(
   city: string,
   stars: number,
@@ -176,7 +162,6 @@ export async function search_hotels(
       let detail: any = {};
 
       try {
-        // coba ambil detail lewat lookup
         const detailRes = await fetch(
           `${BASE_HOTEL_URL}/lookup.json?query=${encodeURIComponent(
             h.hotelName || h.name
@@ -203,7 +188,6 @@ export async function search_hotels(
         price_from: h.priceFrom || h.price || 0,
         price_to: h.priceTo || undefined,
         phone: detail.phone || "Phone not available",
-        // 🔗 Redirect langsung ke Booking.com
         deeplink: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(
           city
         )}&checkin=${checkIn}&checkout=${checkOut}&group_adults=${adults}&nflt=class=${stars}`,
@@ -217,11 +201,6 @@ export async function search_hotels(
   }
 }
 
-
-//--------------------------------------------------------------
-// 2) FLIGHT SEARCH
-//--------------------------------------------------------------
-// ✅ Airline map lengkap
 const airlineMap: Record<string, { name: string; url: string }> = {
   // Indonesia
   GA: { name: "Garuda Indonesia", url: "https://www.garuda-indonesia.com/" },
@@ -281,7 +260,6 @@ const airlineMap: Record<string, { name: string; url: string }> = {
   TK: { name: "Turkish Airlines", url: "https://www.turkishairlines.com/" },
 };
 
-// 🌍 Mapping bandara → city
 function mapBookingCode(iata: string): { code: string; entity: string; city: string; name: string; countryCode: string } {
   switch (iata) {
     // --- INDONESIA ---
@@ -369,7 +347,6 @@ function mapBookingCode(iata: string): { code: string; entity: string; city: str
 }
 
 
-// 🔁 Cached flights
 async function search_cached_flights(origin: string, destination: string, startDate: string, daysToCheck = 5) {
   const today = new Date(startDate);
   for (let i = 0; i < daysToCheck; i++) {
@@ -386,8 +363,6 @@ async function search_cached_flights(origin: string, destination: string, startD
   return [];
 }
 
-// 🔁 Normalize flights
-// 🔁 Normalize flights
 function normalizeFlights(
   items: any[],
   origin: string,
@@ -398,7 +373,6 @@ function normalizeFlights(
   return items.map((info: any) => {
     const airline = airlineMap[info.airline];
 
-    // format ddMM
     const dDate = new Date(departDate);
     const depStr = `${String(dDate.getDate()).padStart(2, "0")}${String(
       dDate.getMonth() + 1
@@ -407,14 +381,12 @@ function normalizeFlights(
     let searchPath: string;
 
     if (returnDate && returnDate !== "") {
-      // Roundtrip
       const rDate = new Date(returnDate);
       const retStr = `${String(rDate.getDate()).padStart(2, "0")}${String(
         rDate.getMonth() + 1
       ).padStart(2, "0")}`;
       searchPath = `${origin}${depStr}${destination}${retStr}1`;
     } else {
-      // One-way
       searchPath = `${origin}${depStr}${destination}1`;
     }
 
@@ -439,7 +411,6 @@ function normalizeFlights(
 
 
 
-// 🔎 Main search
 export async function search_flights(origin: string, destination: string, departDate: string, returnDate?: string) {
   try {
     const qs = new URLSearchParams();
@@ -466,10 +437,6 @@ export async function search_flights(origin: string, destination: string, depart
   }
 }
 
-
-//--------------------------------------------------------------
-// 3) CAR RENTAL (Booking.com redirect edition)
-//--------------------------------------------------------------
 export interface CarRental {
   supplier: string;
   car_type: string;
@@ -478,7 +445,7 @@ export interface CarRental {
   currency: string;
   pickup_location: string;
   dropoff_location: string;
-  deeplink: string; // 🔗 link ke Booking.com
+  deeplink: string; 
 }
 
 export async function find_car_rentals(

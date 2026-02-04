@@ -1,13 +1,8 @@
-// src/controllers/profileController.ts
-
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import * as profileService from "../services/profileService";
 import prisma from "../models/prisma";
 
-/**
- * Change user's password
- */
 export async function changePassword(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {
@@ -39,9 +34,6 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
   }
 }
 
-/**
- * Update user profile
- */
 export async function updateProfile(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {
@@ -75,9 +67,6 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
-/**
- * Get user profile
- */
 export async function getProfile(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {

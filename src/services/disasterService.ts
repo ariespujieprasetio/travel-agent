@@ -20,7 +20,7 @@ export async function fetchDisasterAlertsByCountry(
   iso3: string
 ): Promise<DisasterAlert[]> {
   try {
-    console.log("📰 Fetching GDACS global disaster feed...");
+    console.log("Fetching GDACS global disaster feed...");
 
     const res = await axios.get(GDACS_FEED);
     const events = res.data?.features || [];
@@ -30,7 +30,7 @@ export async function fetchDisasterAlertsByCountry(
       (e: any) => e.properties?.iso3 === iso3
     );
 
-    console.log(`🌍 GDACS events found for ${iso3}:`, countryEvents.length);
+    console.log(`GDACS events found for ${iso3}:`, countryEvents.length);
 
     return countryEvents
       .map((e: any) => {

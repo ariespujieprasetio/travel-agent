@@ -9,14 +9,10 @@ import * as placesService from "./googlePlacesService";
 import { Prisma } from "@prisma/client";
 import { generateSessionTitle } from "./titleGeneratorService";
 import { TravelMode } from "@googlemaps/google-maps-services-js";
-// import * as travelService from "../config/travelpayouts";
-import * as travelService from "../config/travelpayouts"; // flight only
-// import { Hotel } from "../config/travelpayouts";
+import * as travelService from "../config/travelpayouts"; 
 import * as weatherService from "../config/weather";
-// import * as bookingService from "../config/bookingcom";
 import { fetchHolidays } from "./holidayService";
 import { getHolidaysInRange, formatHolidaySummary } from "../utils/holidayUtils";
-// import { getCountryCodeFromCity } from "./locationService";
 import { resolveCountryCode } from "./locationService";
 import {
   fetchDisasterAlertsByCountry,
@@ -25,9 +21,6 @@ import {
 import { convertIso2ToIso3 } from "./locationService";
 
 
-/**
- * Save a message to the database
- */
 export async function saveMessage(
   sessionId: string,
   message: ChatCompletionMessageParam
@@ -183,53 +176,53 @@ function parseDates(text: string): { start: string; end: string } | null {
 }
 
 async function buildHolidayContext(message: string) {
-  console.log("🧠 Holiday context raw message:", message);
+  console.log("Holiday context raw message:", message);
 
   const parsedDates = parseDates(message);
-  console.log("📅 Parsed dates:", parsedDates);
+  console.log("Parsed dates:", parsedDates);
 
   if (!parsedDates) {
-    console.log("❌ No valid dates detected");
+    console.log("No valid dates detected");
     return null;
   }
 
   const { start: startDate, end: endDate } = parsedDates;
-  console.log("📅 Using date range:", startDate, "→", endDate);
+  console.log("Using date range:", startDate, "→", endDate);
 
   const cityMatch =
     message.match(/to\s+([A-Za-z\s]+)/i) ||
     message.match(/in\s+([A-Za-z\s]+)/i) ||
     message.match(/visit\s+([A-Za-z\s]+)/i);
 
-  console.log("🌍 City match result:", cityMatch);
+  console.log("City match result:", cityMatch);
 
   if (!cityMatch) {
-    console.log("❌ No city detected in message");
+    console.log("No city detected in message");
     return null;
   }
 
   const city = cityMatch[1].trim();
-  console.log("🏙 Detected city:", city);
+  console.log("Detected city:", city);
 
   const countryCode = await resolveCountryCode(city);
-  console.log("🏳️ Country code from geocoding:", countryCode);
+  console.log("Country code from geocoding:", countryCode);
 
   if (!countryCode) {
-    console.log("❌ Could not determine country code");
+    console.log("Could not determine country code");
     return null;
   }
 
   const year = new Date(startDate).getFullYear();
-  console.log("📆 Fetching holidays for year:", year);
+  console.log("Fetching holidays for year:", year);
 
   const holidays = await fetchHolidays(countryCode, year);
-  console.log("🎉 Total holidays from API:", holidays.length);
+  console.log("Total holidays from API:", holidays.length);
 
   const filtered = getHolidaysInRange(holidays, startDate, endDate);
-  console.log("🎯 Holidays within trip range:", filtered.length);
+  console.log("Holidays within trip range:", filtered.length);
 
   const summary = formatHolidaySummary(filtered);
-  console.log("🧾 Final holiday summary:", summary);
+  console.log("Final holiday summary:", summary);
 
   return summary;
 }
@@ -252,7 +245,7 @@ async function buildNewsContext(message: string) {
   const iso3 = convertIso2ToIso3(iso2);
   if (!iso3) return null;
 
-  console.log("📰 Fetching disaster alerts for:", iso3);
+  console.log("Fetching disaster alerts for:", iso3);
 
   const alerts = await fetchDisasterAlertsByCountry(iso3);
   return buildDisasterNewsSummary(alerts);
@@ -287,7 +280,7 @@ export async function processMessage(
     .map(m => m.content)
     .join(" ");
 
-    console.log("🧩 Full conversation for holiday detection:", fullConversationText);
+    console.log("Full conversation for holiday detection:", fullConversationText);
 
     const holidaySummary =
     (await buildHolidayContext(fullConversationText)) ||
@@ -366,7 +359,7 @@ export async function processMessage(
                   const data = JSON.parse(args);
                   args = "";
 
-                  console.log("⚙️  Received tool_call:", functionName, toolId);
+                  console.log("Received tool_call:", functionName, toolId);
 
                   toolsCallsDetail.push({
                     function: {
@@ -606,7 +599,6 @@ export async function processMessage(
                       break;
 
                       case "find_top_rated_attractions":
-                        // 🚫 Guard: block attractions before Step 9
                         const step9Reached = history.some(
                           (m) =>
                             m.role === "assistant" &&
@@ -615,7 +607,7 @@ export async function processMessage(
                         );
                       
                         if (!step9Reached) {
-                          console.log("🚫 Blocked attractions tool call before Step 9");
+                          console.log("Blocked attractions tool call before Step 9");
                           toolsCalls.push({
                             role: "tool",
                             content: JSON.stringify({
@@ -641,7 +633,7 @@ export async function processMessage(
                         case "get_weather": {
                           const weatherPayload = await weatherService.getWeather(data.city);
                         
-                          console.log("🌦 Weather payload sent to AI:", {
+                          console.log("Weather payload sent to AI:", {
                             city: weatherPayload.location.city,
                             hasForecast: !!weatherPayload.forecast_summary?.length,
                             hasAlerts: !!weatherPayload.alerts?.length,

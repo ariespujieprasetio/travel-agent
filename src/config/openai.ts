@@ -290,7 +290,6 @@ export const tools: ChatCompletionTool[] = [
   },
 ];
 
-// System prompt loader
 export function getSystemPrompt(): string {
   try {
     const content = fs.readFileSync(path.join(process.cwd(), 'sys-new.txt'), 'utf-8');

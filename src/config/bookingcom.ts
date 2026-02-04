@@ -1,10 +1,3 @@
-// bookingcom.ts — CLEAN IMPLEMENTATION via RapidAPI (Booking.com Flights + Hotels + Cars)
-// -----------------------------------------------------------------------------
-// - Flights   : /api/v1/flights/searchFlights (pakai originSkyId + originEntityId, dst.)
-// - Hotels    : /api/v1/hotels/searchHotels
-// - CarRent   : /api/v1/carRentals/searchCarRentals
-// -----------------------------------------------------------------------------
-
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 
@@ -17,9 +10,6 @@ if (!RAPID_API_KEY) {
 
 const BASE_URL = "https://booking-com15.p.rapidapi.com/api/v1";
 
-//--------------------------------------------------------------
-// Helpers
-//--------------------------------------------------------------
 function ensureHeaders() {
   return {
     "x-rapidapi-host": "booking-com15.p.rapidapi.com",
@@ -41,11 +31,6 @@ function normalizeDate(input: string): string {
   return d.toISOString().split("T")[0]; // YYYY-MM-DD
 }
 
-//--------------------------------------------------------------
-// 0) LOCATION LOOKUP (needed for flights & hotels)
-//--------------------------------------------------------------
-
-// Hardcoded mapping for popular airports (skyId + entityId)
 const airportMap: Record<string, { skyId: string; entityId: string; id: string }> = {
     CGK: { skyId: "CGK", entityId: "27539764", id: "AIRPORT-3728" }, // Jakarta Soekarno-Hatta
     DXB: { skyId: "DXB", entityId: "27539778", id: "AIRPORT-1783" }, // Dubai Intl
@@ -74,10 +59,6 @@ export async function getLocationId(query: string, type: "flights" | "hotels" = 
   return loc?.id || null;
 }
 
-//--------------------------------------------------------------
-// 1) FLIGHT SEARCH
-//--------------------------------------------------------------
-
 export interface Flight {
   airline: string;
   flightNumber: string;
@@ -97,7 +78,6 @@ export async function search_flights_booking(
   currency = "USD"
 ): Promise<Flight[]> {
   try {
-    // 🔹 Gunakan hardcoded map dulu, kalau nggak ada → fallback ke API searchDestination
     const fromLoc =
       airportMap[origin.toUpperCase()] || (await getLocationRaw(origin, "flights"));
     const toLoc =
@@ -110,8 +90,8 @@ export async function search_flights_booking(
     const qs = new URLSearchParams();
 
     console.log("DEBUG PARAMS:", {
-    fromId: fromLoc.id,          // contoh: "AIRPORT-3728"
-    toId: toLoc.id,              // contoh: "AIRPORT-1783"
+    fromId: fromLoc.id,        
+    toId: toLoc.id,             
     departDate: normalizeDate(departDate),
     });
 
@@ -154,10 +134,6 @@ export async function search_flights_booking(
     return [];
   }
 }
-
-//--------------------------------------------------------------
-// 2) HOTEL SEARCH
-//--------------------------------------------------------------
 
 export interface Hotel {
   id: string;
@@ -219,10 +195,6 @@ export async function find_hotels_booking(
     return [];
   }
 }
-
-//--------------------------------------------------------------
-// 3) CAR RENTAL SEARCH
-//--------------------------------------------------------------
 
 export interface CarRental {
   provider: string;

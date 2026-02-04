@@ -11,14 +11,14 @@ async function resolveCountryFromGeoNames(city: string): Promise<string | null> 
         params: {
           q: city,
           maxRows: 1,
-          username: config.geonames.username, // ✅ FIX
+          username: config.geonames.username,
         },
       });
   
       const place = res.data?.geonames?.[0];
       if (place?.countryCode) {
-        console.log("🌍 Resolved via GeoNames:", place.countryCode);
-        return place.countryCode; // ISO2
+        console.log("Resolved via GeoNames:", place.countryCode);
+        return place.countryCode; 
       }
     } catch (err) {
       console.error("GeoNames lookup failed:", err);
@@ -44,7 +44,7 @@ export async function resolveCountryCode(location: string): Promise<string | nul
       );
   
       if (countryComp?.short_name) {
-        console.log("🌍 Resolved via Google Geocode:", countryComp.short_name);
+        console.log("Resolved via Google Geocode:", countryComp.short_name);
         return countryComp.short_name;
       }
     } catch (e) {
@@ -56,7 +56,7 @@ export async function resolveCountryCode(location: string): Promise<string | nul
   
     const isoDirect = countries.getAlpha2Code(query, "en");
     if (isoDirect) {
-      console.log("🌎 Resolved via ISO country list:", isoDirect);
+      console.log("Resolved via ISO country list:", isoDirect);
       return isoDirect;
     }
   
@@ -64,11 +64,11 @@ export async function resolveCountryCode(location: string): Promise<string | nul
     const lastWord = parts[parts.length - 1];
     const isoFromLastWord = countries.getAlpha2Code(lastWord, "en");
     if (isoFromLastWord) {
-      console.log("🌎 Resolved via last word country:", isoFromLastWord);
+      console.log("Resolved via last word country:", isoFromLastWord);
       return isoFromLastWord;
     }
   
-    console.log("❌ Could not resolve country for:", query);
+    console.log("Could not resolve country for:", query);
     return null;
   }  
 
@@ -77,10 +77,10 @@ export function convertIso2ToIso3(iso2: string | null): string | null {
 
   const iso3 = countries.alpha2ToAlpha3(iso2.toUpperCase());
   if (iso3) {
-    console.log(`🌐 Converted ISO2 → ISO3: ${iso2} → ${iso3}`);
+    console.log(`Converted ISO2 → ISO3: ${iso2} → ${iso3}`);
     return iso3;
   }
 
-  console.log("❌ Failed ISO2 → ISO3 conversion for:", iso2);
+  console.log("Failed ISO2 → ISO3 conversion for:", iso2);
   return null;
 }

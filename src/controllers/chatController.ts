@@ -1,13 +1,8 @@
-// src/controllers/chatController.ts
-
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import * as chatService from "../services/chatService";
 import prisma from "../models/prisma";
 
-/**
- * Create a new chat session
- */
 export async function createSession(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {
@@ -24,9 +19,6 @@ export async function createSession(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
-/**
- * Get all chat sessions for the current user
- */
 export async function getSessions(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {
@@ -43,9 +35,6 @@ export async function getSessions(req: AuthRequest, res: Response): Promise<void
   }
 }
 
-/**
- * Get a specific chat session with messages
- */
 export async function getSession(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {
@@ -61,7 +50,6 @@ export async function getSession(req: AuthRequest, res: Response): Promise<void>
       return;
     }
     
-    // Check if this session belongs to the current user
     if (session.userId !== req.user.userId) {
       res.status(403).json({ error: "Forbidden" });
       return;
@@ -74,9 +62,7 @@ export async function getSession(req: AuthRequest, res: Response): Promise<void>
   }
 }
 
-/**
- * Delete a chat session
- */
+
 export async function deleteSession(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {
@@ -92,13 +78,11 @@ export async function deleteSession(req: AuthRequest, res: Response): Promise<vo
       return;
     }
     
-    // Check if this session belongs to the current user
     if (session.userId !== req.user.userId) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
     
-    // Delete the session and all messages
     await prisma.message.deleteMany({
       where: { sessionId },
     });
@@ -114,9 +98,6 @@ export async function deleteSession(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
-/**
- * Update a chat session's title and tagline manually
- */
 export async function updateSessionTitle(req: AuthRequest, res: Response): Promise<void> {
   console.log("Request headers:", req.headers);
   try {
@@ -140,13 +121,11 @@ export async function updateSessionTitle(req: AuthRequest, res: Response): Promi
       return;
     }
     
-    // Check if this session belongs to the current user
     if (session.userId !== req.user.userId) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
     
-    // Update fields that were provided
     const updateData: any = {};
     if (title) updateData.title = title;
     if (tagline) updateData.tagline = tagline;
@@ -163,11 +142,6 @@ export async function updateSessionTitle(req: AuthRequest, res: Response): Promi
   }
 }
 
-
-/**
- * Convert a temporary session to a permanent one
- * This endpoint specifically handles converting unsaved sessions to saved ones
- */
 export async function saveTemporarySession(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {
@@ -177,7 +151,6 @@ export async function saveTemporarySession(req: AuthRequest, res: Response): Pro
     
     const { sessionId } = req.params;
     
-    // First verify the session belongs to this user
     const session = await chatService.getChatSession(sessionId);
     
     if (!session) {
@@ -185,13 +158,11 @@ export async function saveTemporarySession(req: AuthRequest, res: Response): Pro
       return;
     }
     
-    // Check if this session belongs to the current user
     if (session.userId !== req.user.userId) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
     
-    // If the session is already saved, return a 400 error
     if (session.save) {
       res.status(400).json({ 
         error: "Session is already saved", 
@@ -200,7 +171,6 @@ export async function saveTemporarySession(req: AuthRequest, res: Response): Pro
       return;
     }
     
-    // Update the session to be saved
     const updatedSession = await chatService.saveTemporarySession(sessionId);
     
     if (!updatedSession) {
@@ -218,10 +188,6 @@ export async function saveTemporarySession(req: AuthRequest, res: Response): Pro
   }
 }
 
-/**
- * Toggle the save flag for a chat session
- * This endpoint toggles between saved (save=true) and temporary (save=false) states
- */
 export async function toggleSessionSaveFlag(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user?.userId) {
@@ -231,7 +197,6 @@ export async function toggleSessionSaveFlag(req: AuthRequest, res: Response): Pr
     
     const { sessionId } = req.params;
     
-    // First verify the session belongs to this user
     const session = await chatService.getChatSession(sessionId);
     
     if (!session) {
@@ -239,13 +204,11 @@ export async function toggleSessionSaveFlag(req: AuthRequest, res: Response): Pr
       return;
     }
     
-    // Check if this session belongs to the current user
     if (session.userId !== req.user.userId) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
     
-    // Toggle the session's save flag
     const updatedSession = await chatService.toggleSessionSaveFlag(sessionId);
     
     const statusMessage = updatedSession.save 
