@@ -43,15 +43,22 @@ model SystemConfig {
 }
 
 model ChatSession {
-  id            String         @id @default(uuid())
-  userId        String       
-  title         String         @default("Plan your trip")
-  tagline       String         @default("Explore new destination")
-  save          Boolean        @default(true)  // New field: Flag to indicate whether to save this session
-  user          User           @relation(fields: [userId], references: [id])
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  messages      Message[]
+  id              String      @id @default(uuid())
+  userId          String
+  title           String      @default("Plan your trip")
+  tagline         String      @default("Explore new destination")
+  save            Boolean     @default(true)
+
+  tripStart       String?     // "2026-02-09"
+  tripEnd         String?     // "2026-02-14"
+  tripCountry     String?     // "JP"
+  holidaySummary  String?     @db.Text
+  disasterSummary String?     @db.Text
+
+  user            User        @relation(fields: [userId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  messages        Message[]
 }
 
 model Message {

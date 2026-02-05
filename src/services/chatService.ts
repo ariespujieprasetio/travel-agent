@@ -251,6 +251,79 @@ async function buildNewsContext(message: string) {
   return buildDisasterNewsSummary(alerts);
 }
 
+async function getOrBuildTripContext(sessionId: string, text: string) {
+  const session = await prisma.chatSession.findUnique({
+    where: { id: sessionId },
+  });
+
+  const parsedDates = parseDates(text);
+  if (!parsedDates) return null;
+
+  const cityMatch =
+    text.match(/to\s+([A-Za-z\s]+)/i) ||
+    text.match(/in\s+([A-Za-z\s]+)/i) ||
+    text.match(/visit\s+([A-Za-z\s]+)/i);
+
+  if (!cityMatch) return null;
+
+  const city = cityMatch[1].trim();
+  const countryCode = await resolveCountryCode(city);
+  if (!countryCode) return null;
+
+  // 🔁 Kalau trip berubah → reset cache
+  if (
+    session?.tripCountry &&
+    (session.tripStart !== parsedDates.start ||
+      session.tripEnd !== parsedDates.end ||
+      session.tripCountry !== countryCode)
+  ) {
+    console.log("🔄 Trip changed, clearing old cached context");
+
+    await prisma.chatSession.update({
+      where: { id: sessionId },
+      data: {
+        holidaySummary: null,
+        disasterSummary: null,
+        tripStart: null,
+        tripEnd: null,
+        tripCountry: null,
+      },
+    });
+  }
+
+  // ✅ Kalau sudah ada cache → pakai
+  if (session?.holidaySummary && session?.disasterSummary) {
+    console.log("🌍 Using cached trip context");
+    return {
+      holidaySummary: session.holidaySummary,
+      newsSummary: session.disasterSummary,
+    };
+  }
+
+  console.log("🆕 Building trip context FIRST TIME...");
+
+  const holidaySummary =
+    (await buildHolidayContext(text)) ||
+    "No major national public holidays are typically observed during these dates.";
+
+  const newsSummary =
+    (await buildNewsContext(text)) ||
+    "No major travel disruptions or safety advisories are widely reported at this time.";
+
+  await prisma.chatSession.update({
+    where: { id: sessionId },
+    data: {
+      tripStart: parsedDates.start,
+      tripEnd: parsedDates.end,
+      tripCountry: countryCode,
+      holidaySummary,
+      disasterSummary: newsSummary,
+    },
+  });
+
+  return { holidaySummary, newsSummary };
+}
+
 export async function processMessage(
   sessionId: string,
   message: string,
@@ -282,13 +355,16 @@ export async function processMessage(
 
     console.log("Full conversation for holiday detection:", fullConversationText);
 
-    const holidaySummary =
-    (await buildHolidayContext(fullConversationText)) ||
-    "No major national public holidays are typically observed during these dates.";
+    const tripContext = await getOrBuildTripContext(sessionId, fullConversationText);
 
+    const holidaySummary =
+      tripContext?.holidaySummary ??
+      "No major national public holidays are typically observed during these dates.";
+    
     const newsSummary =
-    (await buildNewsContext(fullConversationText)) ||
-    "No major travel disruptions or safety advisories are widely reported at this time.";
+      tripContext?.newsSummary ??
+      "No major travel disruptions or safety advisories are widely reported at this time.";
+    
 
 
     history.unshift({
