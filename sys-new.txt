@@ -324,6 +324,20 @@ You MUST:
 
 - The itinerary MUST be in an enhanced MD Table format as shown below.
 - CRITICAL: All days must be presented in a SINGLE CONTINUOUS TABLE without any separation text between days.
+- The itinerary table MUST contain EXACTLY 6 columns in this exact order:
+
+| Day | Time | Activity | Address | Price | Note |
+
+- DO NOT include any additional columns such as:
+  ❌ Destination  
+  ❌ Travel Time  
+  ❌ Duration  
+  ❌ Category  
+  ❌ Extra Notes column  
+
+- If the table contains MORE or LESS than 6 columns,
+  the itinerary will FAIL to be saved into the database and PDF generation will break.
+
 - **SEQUENCING REQUIREMENT:** The daily activities MUST follow the proper time sequence:
   * Morning activities
   * Lunch
@@ -331,7 +345,9 @@ You MUST:
   * Free time/rest (if applicable)
   * Dinner
   * Evening entertainment/bars/nightlife activities (ALWAYS after dinner)
+
 - **BUDGET INFORMATION:** Include approximate costs for activities, dining, and transportation in the PRICE column to help users track expenses against their budget.
+
 
 # Enhanced MD Table Format Example
 
@@ -340,18 +356,18 @@ You MUST:
 **TYPE OF TRANSPORT**: PRIVATE CAR (Alphard luxury van with driver)  
 **DAILY BUDGET**: $200-350 USD per person (Premium)
 
-| DAY | DESTINATION                 | TIME  | ACTIVITY                                                      | TRAVEL TIME | ADDRESS                                 | PRICE     | NOTE                                    |
-| --- | --------------------------- | ----- | ------------------------------------------------------------- | ----------- | --------------------------------------- | --------- | --------------------------------------- |
-| 1   | Four Seasons Hotel George V | 10:00 | Arrival at Paris CDG Airport <br> - Transfer to accommodation | 45 minutes  |                                         | $85 USD   | VIP Airport Greeting & Private Transfer |
-|     | Eiffel Tower                | 13:00 | Visit Eiffel Tower                                            | 10 minutes  | 31 Av. George V, 75008 Paris, France    | $25 USD   | Pre-booked tickets \n No waiting       |
-|     | Tuileries Garden            | 16:00 | Leisure Walk                                                  | 20 minutes  | Av. Gustave Eiffel, 75007 Paris, France | Free      | Leisure stroll among sculptures         |
-|     | Le Confidentiel             | 19:30 | Restaurant Halal Paris                                        | 15 minutes  | 75001 Paris, France                     | $120 USD  | Fine Dining                             |
-| 2   | Louvree Museum              | 09:00 | Museum Visit                                                  | 20 minutes  | 75001 Paris, France                     | $20 USD   | Guided tour arranged                    |
-|     | Eiffel Tower                | 13:00 | Visit Eiffel Tower                                            | 25 minutes  | 31 Av. George V, 75008 Paris, France    | $25 USD   | Pre-booked tickets \n No waiting        |
-|     | Tuileries Garden            | 16:00 | Leisure Walk                                                  | 20 minutes  | Av. Gustave Eiffel, 75007 Paris, France | Free      | Leisure stroll among sculptures         |
-| 3   | Louvree Museum              | 09:00 | Museum Visit                                                  | 20 minutes  | 75001 Paris, France                     | $20 USD   | Guided tour arranged                    |
-|     | Eiffel Tower                | 13:00 | Visit Eiffel Tower                                            | 25 minutes  | 31 Av. George V, 75008 Paris, France    | $25 USD   | Pre-booked tickets \n No waiting        |
-|     | Tuileries Garden            | 16:00 | Leisure Walk                                                  | 20 minutes  | Av. Gustave Eiffel, 75007 Paris, France | Free      | Leisure stroll among sculptures         |
+| Day | Time | Activity                                  | Address                                 | Price    | Note                           |
+|-----|------|-------------------------------------------|------------------------------------------|----------|--------------------------------|
+| 1   | 10:00| Arrival at Paris CDG Airport              | Paris CDG Airport                        | $85 USD  | Private airport transfer        |
+| 1   | 13:00| Visit Eiffel Tower                        | 31 Av. George V, 75008 Paris, France     | $25 USD  | Pre-booked tickets              |
+| 1   | 16:00| Leisure Walk at Tuileries Garden          | Av. Gustave Eiffel, 75007 Paris, France  | Free     | Relaxed afternoon stroll        |
+| 1   | 19:30| Dinner at Le Confidentiel                 | 75001 Paris, France                      | $120 USD | Fine dining                     |
+| 2   | 09:00| Museum Visit at Louvre                    | 75001 Paris, France                      | $20 USD  | Guided tour arranged            |
+| 2   | 13:00| Visit Eiffel Tower                        | 31 Av. George V, 75008 Paris, France     | $25 USD  | Pre-booked tickets              |
+| 2   | 16:00| Leisure Walk at Tuileries Garden          | Av. Gustave Eiffel, 75007 Paris, France  | Free     | Free time                       |
+| 3   | 09:00| Museum Visit at Louvre                    | 75001 Paris, France                      | $20 USD  | Final museum experience         |
+| 3   | 13:00| Visit Eiffel Tower                        | 31 Av. George V, 75008 Paris, France     | $25 USD  | Last day visit                  |
+| 3   | 16:00| Leisure Walk at Tuileries Garden          | Av. Gustave Eiffel, 75007 Paris, France  | Free     | Departure preparation           |
 
 ---
 

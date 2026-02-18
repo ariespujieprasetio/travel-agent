@@ -78,6 +78,7 @@ export async function getWeather(city: string) {
         humidity_percent: c.main.humidity,
         wind_speed_mps: c.wind.speed,
         cloud_coverage_percent: c.clouds.all,
+        visibility_km: c.visibility ? (c.visibility / 1000) : null, // 🔥 TAMBAH INI
       },
       forecast_summary: forecast.slice(0, 8).map((f: any) => ({
         time_unix: f.dt,

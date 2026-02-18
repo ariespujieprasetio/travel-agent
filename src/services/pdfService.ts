@@ -39,39 +39,107 @@ function parseCost(val?: string | null): number {
 
 /* ================= TABLE DRAW HELPER ================= */
 
-function drawTable(
-  doc: PDFKit.PDFDocument,
-  headers: string[],
-  rows: string[][],
-  startY: number
-) {
-  const columnWidth = (doc.page.width - 80) / headers.length;
+function drawTable(doc, headers, rows, startY, startX = 40)
+ {
+
+  const columnWidth = (doc.page.width - startX * 2) / headers.length;
   let y = startY;
 
   doc.font("NotoSans-Bold").fontSize(11);
 
+  // HEADER
   headers.forEach((h, i) => {
-    doc.rect(40 + i * columnWidth, y, columnWidth, 20).fillAndStroke("#9933FF", "#000");
-    doc.fillColor("#FFFFFF").text(h, 45 + i * columnWidth, y + 5, { width: columnWidth - 10 });
+    doc.rect(startX + i * columnWidth, y, columnWidth, 25)
+    .fillAndStroke("#9933FF", "#000");
+
+    doc.fillColor("#FFFFFF")
+       .text(h, 45 + i * columnWidth, y + 7, { width: columnWidth - 10 });
   });
 
-  y += 20;
+  y += 25;
   doc.font("NotoSans").fillColor("#000000");
 
+  // ROWS
   rows.forEach((row) => {
-    row.forEach((cell, i) => {
-      doc.rect(40 + i * columnWidth, y, columnWidth, 20).stroke();
-      doc.text(cell, 45 + i * columnWidth, y + 5, { width: columnWidth - 10 });
+
+    let rowHeight = 0;
+
+    // 🔥 HITUNG HEIGHT PALING TINGGI DI ROW
+    row.forEach((cell) => {
+
+      const cellHeight = doc.heightOfString(cell ?? "-", {
+        width: columnWidth - 10,
+        align: "left"
+      });
+
+      rowHeight = Math.max(rowHeight, cellHeight);
     });
-    y += 20;
+
+    rowHeight += 10;
+
+    // AUTO PAGE BREAK
+    if (y + rowHeight > doc.page.height - 40) {
+      doc.addPage();
+      y = 40;
+    }
+
+    // DRAW CELL
+    row.forEach((cell, i) => {
+      doc.rect(startX + i * columnWidth, y, columnWidth, rowHeight).stroke();
+
+      doc.text(cell ?? "-", startX + 5 + i * columnWidth, y + 5, {
+        width: columnWidth - 10,
+      });
+    });
+
+    y += rowHeight;
   });
 
   return y;
 }
 
+function buildFullWeather(weather: any): string {
+
+  if (!weather?.current) return "-";
+
+  const forecast = weather?.forecast_summary
+    ? `Rain: ${weather.forecast_summary.rain_expected ? "Yes" : "No"}
+Temp Range: ${weather.forecast_summary.temp_min ?? "-"}°C - ${weather.forecast_summary.temp_max ?? "-"}°C`
+    : "-";
+
+  const alerts = weather?.alerts?.length
+    ? weather.alerts.map((a: any) => a.event).join(", ")
+    : "No severe weather alerts";
+
+  const insight = weather?.insights
+    ? `Umbrella: ${weather.insights.umbrella ? "Recommended" : "Not needed"}
+Beach: ${weather.insights.beach ? "Suitable" : "Not recommended"}
+Sunset Visibility: ${weather.insights.sunset ?? "-"}`
+    : "-";
+
+  return `
+Temperature: ${weather.current.temperature_c ?? "-"}°C
+Feels Like: ${weather.current.feels_like_c ?? "-"}°C
+Humidity: ${weather.current.humidity ?? "-"}%
+Wind: ${weather.current.wind_speed ?? "-"} km/h
+Cloud: ${weather.current.cloud_coverage ?? "-"}%
+Visibility: ${weather.current.visibility ?? "-"} km
+Condition: ${weather.current.description ?? "-"}
+
+Forecast:
+${forecast}
+
+Alerts: ${alerts}
+
+Travel Insight:
+${insight}
+`.trim();
+}
+
 /* ================= MAIN PDF FUNCTION ================= */
 
 export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
+
   const itinerary = await prisma.tripItinerary.findMany({
     where: { sessionId },
     orderBy: [{ dayNumber: "asc" }, { time: "asc" }],
@@ -92,7 +160,7 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
   const buffers: Uint8Array[] = [];
   doc.on("data", buffers.push.bind(buffers));
 
-  /* ===== HEADER ===== */
+  /* ================= HEADER ================= */
   doc.rect(0, 0, doc.page.width, 40).fill("#9933FF");
   doc.fillColor("#FFFFFF")
      .font("NotoSans-Bold")
@@ -101,18 +169,46 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
 
   doc.moveDown(2).fillColor("#000000");
 
-  /* ===== INFO DETAIL ===== */
+  /* ================= INFORMATION DETAIL ================= */
+
   const weather = context?.weatherJson as any;
+
+  const travelDate =
+    context?.tripStart && context?.tripEnd
+      ? `${new Date(context.tripStart).toDateString()} - ${new Date(context.tripEnd).toDateString()}`
+      : "-";
+
+  const fullWeather = buildFullWeather(context?.weatherJson);
+
+  const tableStartX = 80;
   const infoRows = [
-    ["City", weather?.location?.city || "-"],
-    ["Condition", weather?.current?.description || "-"],
-    ["Temperature", weather?.current?.temperature_c + "°C" || "-"],
+    ["Travel Date", travelDate],
+    ["Country", context?.countryCode || "-"],
+    ["City", context?.city || "-"],
+    ["Number of Travelers", "1"],
+    ["Major Event", context?.holidaySummary || "-"],
+    ["National Day", context?.holidaySummary || "-"],
+    ["Weather", fullWeather],
+    ["Travel News", context?.disasterSummary || "-"],
   ];
 
-  doc.font("NotoSans-Bold").text("Information Detail");
-  drawTable(doc, ["Item", "Details"], infoRows, doc.y + 10);
+  doc
+  .font("NotoSans-Bold")
+  .fontSize(16)
+  .text("Information Detail", tableStartX, doc.y);
 
-  /* ===== GROUP ITINERARY PER DAY ===== */
+  doc.moveDown(0.5);
+
+  drawTable(
+    doc,
+    ["Item", "Details"],
+    infoRows,
+    doc.y,
+    tableStartX
+  );
+
+  /* ================= GROUP ITINERARY ================= */
+
   const grouped: Record<number, typeof itinerary> = {};
   itinerary.forEach((item) => {
     if (!grouped[item.dayNumber]) grouped[item.dayNumber] = [];
@@ -125,22 +221,28 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
     doc.moveDown();
 
     const rows = grouped[Number(day)].map((it) => {
+
       const detailsParts = [];
-      if (it.description) detailsParts.push(cleanText(it.description));
-      if (it.location) detailsParts.push("Location: " + cleanText(it.location));
+
+      if (it.description)
+        detailsParts.push(cleanText(it.description));
+
+      if (it.location)
+        detailsParts.push("Location: " + cleanText(it.location));
 
       return [
         it.time || "-",
         cleanText(it.title),
         detailsParts.join("\n") || "-",
-        it.price ? cleanText(it.price) : "-"
+        it.price || "-"
       ];
     });
 
     drawTable(doc, ["Time", "Activity", "Details", "Cost"], rows, doc.y + 10);
   });
 
-  /* ===== BUDGET SUMMARY ===== */
+  /* ================= BUDGET SUMMARY ================= */
+
   doc.addPage();
   doc.rect(0, 0, doc.page.width, 40).fill("#9933FF");
   doc.fillColor("#FFFFFF")
@@ -177,4 +279,6 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
   return new Promise((resolve) => {
     doc.on("end", () => resolve(Buffer.concat(buffers)));
   });
+
 }
+

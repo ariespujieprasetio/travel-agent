@@ -23,6 +23,7 @@ import { parseItineraryMarkdown } from "../utils/itineraryParser";
 
 async function trySaveItinerary(sessionId: string, rawContent: any) {
   try {
+
     const content =
       typeof rawContent === "string"
         ? rawContent
@@ -30,36 +31,70 @@ async function trySaveItinerary(sessionId: string, rawContent: any) {
         ? rawContent.map(p => ("text" in p ? p.text : "")).join("")
         : "";
 
-    // Cari semua baris tabel markdown
     const lines = content.split("\n").filter(l => l.trim().startsWith("|"));
-    if (lines.length < 3) return; // Tidak ada tabel valid
+    if (lines.length < 3) return;
 
-    // Lewati header & separator
     const dataLines = lines.slice(2);
 
-    let dayCounter = 1;
+    let currentDay = 1;
 
     const rows = dataLines.map(line => {
-      const cols = line.split("|").map(c => c.trim()).filter(Boolean);
-      if (cols.length < 5) return null;
 
-      return {
-        sessionId,
-        dayNumber: dayCounter, // Auto increment hari
-        time: cols[1] || null,
-        title: cols[2] || null,
-        description: cols[3] || null,
-        location: cols[4] || null,
-        price: cols[5] || null,
-      };
+      if (line.includes("---")) return null;
+
+      const cols = line
+        .split("|")
+        .map(c => c.trim())
+        .slice(1, -1);
+
+      // 👇 SUPPORT 6 ATAU 8 KOLOM
+      if (cols.length !== 6 && cols.length !== 8) return null;
+
+      const parsedDay = parseInt(cols[0]);
+      if (!isNaN(parsedDay)) currentDay = parsedDay;
+
+      if (cols.length === 6) {
+        // FORMAT SIMPLE
+        return {
+          sessionId,
+          dayNumber: currentDay,
+          time: cols[1] || null,
+          title: cols[2] || null,
+          description: cols[5] || null,
+          location: cols[3] || null,
+          price: cols[4] || null,
+        };
+      }
+
+      if (cols.length === 8) {
+        // FORMAT FULL
+        return {
+          sessionId,
+          dayNumber: currentDay,
+          time: cols[2] || null,
+          title: cols[3] || null,
+          description:
+            (cols[4] ? cols[4] + "\n" : "") +
+            (cols[7] ? cols[7] : ""),
+          location: cols[5] || null,
+          price: cols[6] || null,
+        };
+      }
+
     }).filter(Boolean);
 
-    if (!rows.length) return;
+    if (!rows.length) {
+      console.log("❌ NO VALID ROWS PARSED");
+      return;
+    }
+
+    console.log("ROWS READY:", rows.length);
 
     await prisma.tripItinerary.deleteMany({ where: { sessionId } });
     await prisma.tripItinerary.createMany({ data: rows });
 
-    console.log("✅ Itinerary saved:", rows.length, "rows");
+    console.log("✅ Itinerary saved FIXED:", rows.length, "rows");
+
   } catch (err) {
     console.error("❌ Failed saving itinerary:", err);
   }
@@ -830,6 +865,7 @@ export async function processMessage(
                         break;
 
                         case "get_weather": {
+
                           const weatherPayload = await weatherService.getWeather(data.city);
                         
                           toolsCalls.push({
@@ -841,11 +877,60 @@ export async function processMessage(
                             tool_call_id: toolId,
                           });
                         
-                          // 🌍 SIMPAN KE TRIP CONTEXT
                           const parsedDates = parseDates(fullConversationText);
                           const countryCode = await resolveCountryCode(data.city);
                         
                           if (parsedDates && countryCode) {
+                        
+                            // 🔥 FORMAT TOOL RESPONSE → PDF FORMAT
+                            const formattedWeather = {
+                        
+                              current: {
+                                temperature_c: weatherPayload.current?.temperature_c ?? null,
+                                feels_like_c: weatherPayload.current?.feels_like_c ?? null,
+                        
+                                humidity:
+                                  weatherPayload.current?.humidity_percent ?? null,
+                        
+                                wind_kph:
+                                  weatherPayload.current?.wind_speed_mps
+                                    ? weatherPayload.current.wind_speed_mps * 3.6
+                                    : null,
+                        
+                                cloud:
+                                  weatherPayload.current?.cloud_coverage_percent ?? null,
+                        
+                                vis_km:
+                                  weatherPayload.current?.visibility_km ?? null,
+                        
+                                description:
+                                  weatherPayload.current?.description ?? "-"
+                              },
+                        
+                              forecast_summary:
+                                weatherPayload.forecast_summary ?? "-",
+                        
+                              alerts:
+                                weatherPayload.alerts ?? [],
+                        
+                              insights: {
+                                umbrella:
+                                  weatherPayload.insights?.umbrellaRecommended
+                                    ? "Recommended"
+                                    : "Not needed",
+                        
+                                beach:
+                                  weatherPayload.insights?.windAdvisory
+                                    ? "Not recommended"
+                                    : "Suitable",
+                        
+                                sunset_visibility:
+                                  weatherPayload.insights?.goodSunsetVisibility
+                                    ? "Good"
+                                    : "Limited"
+                              }
+                            };
+                        
                             await saveTripContext({
                               sessionId,
                               city: data.city,
@@ -854,12 +939,12 @@ export async function processMessage(
                               endDate: parsedDates.end,
                               holidaySummary,
                               disasterSummary: newsSummary,
-                              weatherPayload, // FULL JSON masuk DB
+                              weatherPayload: formattedWeather, // ✅ SAVE YANG UDAH DI MAP
                             });
                           }
                         
                           break;
-                        }                                                                 
+                        }                        
 
                     default:
                       toolsCalls.push({
@@ -879,20 +964,29 @@ export async function processMessage(
       }
 
       if (callFunction) {
+
         const assistantMessage: ChatCompletionMessageParam = {
           role: "assistant",
           content: acc,
           tool_calls: toolsCallsDetail,
         };
+      
         await saveMessage(sessionId, assistantMessage);
         history.push(assistantMessage);
-
+      
         for (const toolCall of toolsCalls) {
           await saveMessage(sessionId, toolCall);
           history.push(toolCall);
         }
+      
+        if (acc && acc.includes("|")) {
+          console.log("💾 Saving itinerary from TOOL LOOP...");
+          await trySaveItinerary(sessionId, acc);
+        }
+      
         continue;
-      } else {
+      }
+       else {
         const assistantMessage: ChatCompletionMessageParam = {
           role: "assistant",
           content: acc.trim(),

@@ -4,6 +4,8 @@ import express from "express";
 import * as chatController from "../controllers/chatController";
 import { authenticate } from "../middleware/auth";
 import { Request, Response, NextFunction } from "express";
+import { exportItineraryPDF } from "../controllers/pdfController";
+
 
 const router = express.Router();
 
@@ -38,6 +40,10 @@ router.get("/sessions", (req, res) => chatController.getSessions(req, res));
 
 router.get("/sessions/:sessionId/pdf-context", (req, res) =>
   chatController.getPdfContext(req, res)
+);
+
+router.get("/sessions/:sessionId/export-pdf", (req, res) =>
+  exportItineraryPDF(req, res)
 );
 
 router.get("/sessions/:sessionId", (req, res) => chatController.getSession(req, res));
