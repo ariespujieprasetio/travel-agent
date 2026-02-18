@@ -8,6 +8,7 @@ countries.registerLocale(en);
 async function resolveCountryFromGeoNames(city: string): Promise<string | null> {
     try {
       const res = await axios.get("http://api.geonames.org/searchJSON", {
+        timeout: 2500,
         params: {
           q: city,
           maxRows: 1,

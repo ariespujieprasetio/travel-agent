@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import * as chatService from "../services/chatService";
 import prisma from "../models/prisma";
+import { parseItineraryMarkdown } from "../utils/itineraryParser";
 
 export async function createSession(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -222,5 +223,31 @@ export async function toggleSessionSaveFlag(req: AuthRequest, res: Response): Pr
   } catch (error: any) {
     console.error("Toggle session save flag error:", error);
     res.status(500).json({ error: error.message || "Failed to toggle session save flag" });
+  }
+}
+
+export async function getPdfContext(req, res) {
+  try {
+    const { sessionId } = req.params;
+
+    const session = await prisma.chatSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        tripStart: true,
+        tripEnd: true,
+        tripCountry: true,
+        holidaySummary: true,
+        disasterSummary: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
+    res.json(session);
+  } catch (error) {
+    console.error("Error fetching PDF context:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 }

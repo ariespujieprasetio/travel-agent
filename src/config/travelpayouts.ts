@@ -450,25 +450,75 @@ export interface CarRental {
 
 export async function find_car_rentals(
   city: string,
-  count = 10,
+  count = 6,
   days = 3,
   currency = "USD"
 ): Promise<CarRental[]> {
-  const suppliers = ["Avis", "Hertz", "Budget", "Sixt", "Enterprise"];
-  const carTypes = ["Compact", "SUV", "Sedan", "Van", "Convertible"];
 
-  const rentals: CarRental[] = [];
   const today = new Date();
   const pickupDate = today.toISOString().split("T")[0];
-  const dropoffDate = new Date(today.getTime() + days * 24 * 60 * 60 * 1000)
+  const dropoffDate = new Date(today.getTime() + days * 86400000)
     .toISOString()
     .split("T")[0];
 
-  let i = 0;
-  while (rentals.length < count) {
+  // 🔥 MARKET BASE RATE BY CITY
+  const cityBaseRate: Record<string, number> = {
+    singapore: 65,
+    jakarta: 45,
+    bali: 50,
+    tokyo: 85,
+    paris: 90,
+    dubai: 75
+  };
+
+  const base =
+    cityBaseRate[city.toLowerCase()] ??
+    55; // default kalau city unknown
+
+  // 🔥 SUPPLIER PREMIUM FACTOR
+  const supplierFactor = {
+    Avis: 1.15,
+    Hertz: 1.2,
+    Budget: 0.95,
+    Sixt: 1.1,
+    Enterprise: 1.05,
+  };
+
+  // 🔥 CAR TYPE MULTIPLIER
+  const carFactor = {
+    Compact: 0.9,
+    Sedan: 1,
+    SUV: 1.3,
+    Van: 1.4,
+    Convertible: 1.6,
+  };
+
+  const suppliers = Object.keys(supplierFactor);
+  const carTypes = Object.keys(carFactor);
+
+  const rentals: CarRental[] = [];
+
+  for (let i = 0; i < count; i++) {
+
     const supplier = suppliers[i % suppliers.length];
     const car_type = carTypes[i % carTypes.length];
-    const price_per_day = 40 + Math.floor(Math.random() * 60);
+
+    // 🔥 WEEKEND SURCHARGE
+    const isWeekend =
+      today.getDay() === 5 ||
+      today.getDay() === 6;
+
+    const weekendFactor = isWeekend ? 1.15 : 1;
+
+    // 🔥 DYNAMIC PRICE CALC
+    const price_per_day = Math.round(
+      base *
+      supplierFactor[supplier as keyof typeof supplierFactor] *
+      carFactor[car_type as keyof typeof carFactor] *
+      weekendFactor *
+      (0.95 + Math.random() * 0.1) // small fluctuation only
+    );
+
     const total_price = price_per_day * days;
 
     rentals.push({
@@ -479,12 +529,14 @@ export async function find_car_rentals(
       currency,
       pickup_location: city,
       dropoff_location: city,
-      deeplink: `https://www.booking.com/cars/index.id.html?selected_currency=${currency}&aid=304142&pickup=${pickupDate}&dropoff=${dropoffDate}&city=${encodeURIComponent(
-        city
-      )}`,
+      deeplink:
+        `https://www.booking.com/cars/index.id.html?` +
+        `selected_currency=${currency}` +
+        `&aid=304142` +
+        `&pickup=${pickupDate}` +
+        `&dropoff=${dropoffDate}` +
+        `&city=${encodeURIComponent(city)}`
     });
-
-    i++;
   }
 
   return rentals;

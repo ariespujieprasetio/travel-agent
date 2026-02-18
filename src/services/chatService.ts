@@ -19,7 +19,91 @@ import {
   buildDisasterNewsSummary,
 } from "./disasterService";
 import { convertIso2ToIso3 } from "./locationService";
+import { parseItineraryMarkdown } from "../utils/itineraryParser";
 
+async function trySaveItinerary(sessionId: string, rawContent: any) {
+  try {
+    const content =
+      typeof rawContent === "string"
+        ? rawContent
+        : Array.isArray(rawContent)
+        ? rawContent.map(p => ("text" in p ? p.text : "")).join("")
+        : "";
+
+    // Cari semua baris tabel markdown
+    const lines = content.split("\n").filter(l => l.trim().startsWith("|"));
+    if (lines.length < 3) return; // Tidak ada tabel valid
+
+    // Lewati header & separator
+    const dataLines = lines.slice(2);
+
+    let dayCounter = 1;
+
+    const rows = dataLines.map(line => {
+      const cols = line.split("|").map(c => c.trim()).filter(Boolean);
+      if (cols.length < 5) return null;
+
+      return {
+        sessionId,
+        dayNumber: dayCounter, // Auto increment hari
+        time: cols[1] || null,
+        title: cols[2] || null,
+        description: cols[3] || null,
+        location: cols[4] || null,
+        price: cols[5] || null,
+      };
+    }).filter(Boolean);
+
+    if (!rows.length) return;
+
+    await prisma.tripItinerary.deleteMany({ where: { sessionId } });
+    await prisma.tripItinerary.createMany({ data: rows });
+
+    console.log("✅ Itinerary saved:", rows.length, "rows");
+  } catch (err) {
+    console.error("❌ Failed saving itinerary:", err);
+  }
+}
+
+async function saveTripContext(params: {
+  sessionId: string;
+  city: string;
+  countryCode: string;
+  startDate: string;
+  endDate: string;
+  holidaySummary: string;
+  disasterSummary: string;
+  weatherPayload: any;
+}) {
+  try {
+    await prisma.tripContext.upsert({
+      where: { sessionId: params.sessionId },
+      update: {
+        city: params.city,
+        countryCode: params.countryCode,
+        tripStart: new Date(params.startDate),
+        tripEnd: new Date(params.endDate),
+        holidaySummary: params.holidaySummary,
+        disasterSummary: params.disasterSummary,
+        weatherJson: params.weatherPayload,
+      },
+      create: {
+        sessionId: params.sessionId,
+        city: params.city,
+        countryCode: params.countryCode,
+        tripStart: new Date(params.startDate),
+        tripEnd: new Date(params.endDate),
+        holidaySummary: params.holidaySummary,
+        disasterSummary: params.disasterSummary,
+        weatherJson: params.weatherPayload,
+      },
+    });    
+
+    console.log("🌍 Trip context saved");
+  } catch (err) {
+    console.error("❌ Failed saving trip context:", err);
+  }
+}
 
 export async function saveMessage(
   sessionId: string,
@@ -355,14 +439,26 @@ export async function processMessage(
 
     console.log("Full conversation for holiday detection:", fullConversationText);
 
-    const tripContext = await getOrBuildTripContext(sessionId, fullConversationText);
+    // 🔥 BUILD CONTEXT DI BACKGROUND (NON BLOCKING)
+    getOrBuildTripContext(sessionId, fullConversationText)
+      .catch(e => console.log("TripContext async failed"));
+
+
+    // 🔥 AMBIL CACHE DB AJA (INSTANT)
+    const sessionCache = await prisma.chatSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        holidaySummary: true,
+        disasterSummary: true
+      }
+    });
 
     const holidaySummary =
-      tripContext?.holidaySummary ??
+      sessionCache?.holidaySummary ??
       "No major national public holidays are typically observed during these dates.";
-    
+
     const newsSummary =
-      tripContext?.newsSummary ??
+      sessionCache?.disasterSummary ??
       "No major travel disruptions or safety advisories are widely reported at this time.";
     
 
@@ -487,20 +583,54 @@ export async function processMessage(
                       });
                       break;
 
-                    case "search_flights":
-                      toolsCalls.push({
-                        role: "tool",
-                        content: JSON.stringify(
-                          await travelService.search_flights(
+                      case "search_flights": {
+
+                        let flights = [];
+                      
+                        try {
+                          flights = await travelService.search_flights(
                             data.origin,
                             data.destination,
                             data.departDate,
                             data.returnDate
-                          )
-                        ),
-                        tool_call_id: toolId,
-                      });
-                      break;
+                          );
+                        } catch (e) {
+                          console.log("⚠️ Flight API failed");
+                        }
+                      
+                        if (!flights || flights.length === 0) {
+                      
+                          const bookingFlightLink =
+                            `https://www.booking.com/flights/index.html?` +
+                            `from=${data.origin}&to=${data.destination}` +
+                            `&depart=${data.departDate}` +
+                            (data.returnDate ? `&return=${data.returnDate}` : "");
+                      
+                          toolsCalls.push({
+                            role: "tool",
+                            content: `
+                      No flights were found for your selected dates via our airline provider.
+                      
+                      However, you can still explore available options here:
+                      
+                      ✈️ Search flights on Booking.com:
+                      ${bookingFlightLink}
+                            `,
+                            tool_call_id: toolId,
+                          });
+                      
+                          break;
+                        }
+                      
+                        // ✅ NORMAL RESPONSE
+                        toolsCalls.push({
+                          role: "tool",
+                          content: JSON.stringify(flights),
+                          tool_call_id: toolId,
+                        });
+                      
+                        break;
+                      }                      
                       case "find_hotels": {
                         const hotels = await placesService.findHotels(
                           data.city,
@@ -639,13 +769,6 @@ export async function processMessage(
                       });
                       break;
 
-                    case "find_top_rated_hotels":
-                    const topHotels = await travelService.find_top_rated_hotels(
-                      data.city,
-                      data.stars,
-                      data.count || 3
-                    );
-
                     case "find_top_rated_restaurants":
                       toolsCalls.push({
                         role: "tool",
@@ -709,13 +832,6 @@ export async function processMessage(
                         case "get_weather": {
                           const weatherPayload = await weatherService.getWeather(data.city);
                         
-                          console.log("Weather payload sent to AI:", {
-                            city: weatherPayload.location.city,
-                            hasForecast: !!weatherPayload.forecast_summary?.length,
-                            hasAlerts: !!weatherPayload.alerts?.length,
-                            hasInsights: !!weatherPayload.insights,
-                          });
-                        
                           toolsCalls.push({
                             role: "tool",
                             content: JSON.stringify({
@@ -725,8 +841,25 @@ export async function processMessage(
                             tool_call_id: toolId,
                           });
                         
+                          // 🌍 SIMPAN KE TRIP CONTEXT
+                          const parsedDates = parseDates(fullConversationText);
+                          const countryCode = await resolveCountryCode(data.city);
+                        
+                          if (parsedDates && countryCode) {
+                            await saveTripContext({
+                              sessionId,
+                              city: data.city,
+                              countryCode,
+                              startDate: parsedDates.start,
+                              endDate: parsedDates.end,
+                              holidaySummary,
+                              disasterSummary: newsSummary,
+                              weatherPayload, // FULL JSON masuk DB
+                            });
+                          }
+                        
                           break;
-                        }
+                        }                                                                 
 
                     default:
                       toolsCalls.push({
@@ -762,13 +895,18 @@ export async function processMessage(
       } else {
         const assistantMessage: ChatCompletionMessageParam = {
           role: "assistant",
-          content: acc,
+          content: acc.trim(),
         };
+      
         await saveMessage(sessionId, assistantMessage);
         history.push(assistantMessage);
+      
+        // 🔥 SAVE ITINERARY DARI FINAL MESSAGE
+        await trySaveItinerary(sessionId, assistantMessage.content);
+      
         emit(`msg-${sessionId}`, "\n\0");
         break;
-      }
+      }      
     }
     return true;
   } catch (error) {
