@@ -21,6 +21,11 @@ import {
 import { convertIso2ToIso3 } from "./locationService";
 import { parseItineraryMarkdown } from "../utils/itineraryParser";
 
+function isFinalItinerary(content: string): boolean {
+  if (!content) return false;
+  return /<itinerary_table>([\s\S]*?)<\/itinerary_table>/.test(content);
+}
+
 async function trySaveItinerary(sessionId: string, rawContent: any) {
   try {
 
@@ -31,10 +36,18 @@ async function trySaveItinerary(sessionId: string, rawContent: any) {
         ? rawContent.map(p => ("text" in p ? p.text : "")).join("")
         : "";
 
-    const lines = content.split("\n").filter(l => l.trim().startsWith("|"));
-    if (lines.length < 3) return;
-
-    const dataLines = lines.slice(2);
+    const match = content.match(
+      /<itinerary_table>([\s\S]*?)<\/itinerary_table>/
+    );
+    
+    if (!match) return;
+    
+    const markdownTable = match[1];
+    
+    const dataLines = markdownTable
+      .split("\n")
+      .filter(l => l.includes("|") && !l.includes("---"));
+        
 
     let currentDay = 1;
 
@@ -50,8 +63,10 @@ async function trySaveItinerary(sessionId: string, rawContent: any) {
       // 👇 SUPPORT 6 ATAU 8 KOLOM
       if (cols.length !== 6 && cols.length !== 8) return null;
 
-      const parsedDay = parseInt(cols[0]);
-      if (!isNaN(parsedDay)) currentDay = parsedDay;
+      const dayMatch = cols[0].match(/\d+/);
+      if (dayMatch) {
+        currentDay = parseInt(dayMatch[0]);
+      }
 
       if (cols.length === 6) {
         // FORMAT SIMPLE
@@ -109,6 +124,11 @@ async function saveTripContext(params: {
   holidaySummary: string;
   disasterSummary: string;
   weatherPayload: any;
+
+  hotelName?: string;
+  hotelBudget?: string;
+  flightInfo?: string;
+  groundTransport?: string;
 }) {
   try {
     await prisma.tripContext.upsert({
@@ -121,6 +141,11 @@ async function saveTripContext(params: {
         holidaySummary: params.holidaySummary,
         disasterSummary: params.disasterSummary,
         weatherJson: params.weatherPayload,
+      
+        hotelName: params.hotelName,
+        hotelBudget: params.hotelBudget,
+        flightInfo: params.flightInfo,
+        groundTransport: params.groundTransport,
       },
       create: {
         sessionId: params.sessionId,
@@ -131,6 +156,11 @@ async function saveTripContext(params: {
         holidaySummary: params.holidaySummary,
         disasterSummary: params.disasterSummary,
         weatherJson: params.weatherPayload,
+      
+        hotelName: params.hotelName,
+        hotelBudget: params.hotelBudget,
+        flightInfo: params.flightInfo,
+        groundTransport: params.groundTransport,
       },
     });    
 
@@ -346,6 +376,27 @@ async function buildHolidayContext(message: string) {
   return summary;
 }
 
+async function buildEventsContext(message: string) {
+  const parsedDates = parseDates(message);
+  if (!parsedDates) return null;
+
+  const cityMatch =
+    message.match(/to\s+([A-Za-z\s]+)/i) ||
+    message.match(/in\s+([A-Za-z\s]+)/i) ||
+    message.match(/visit\s+([A-Za-z\s]+)/i);
+
+  if (!cityMatch) return null;
+
+  const city = cityMatch[1].trim();
+
+  const events = await placesService.findLocalEvents(city, undefined, 5);
+
+  if (!events || events.length === 0)
+    return "None";
+
+  return events.map((e: any) => e.displayName?.text ?? e.name).join(", ");
+}
+
 async function buildNewsContext(message: string) {
   const parsedDates = parseDates(message);
   if (!parsedDates) return null;
@@ -474,36 +525,25 @@ export async function processMessage(
 
     console.log("Full conversation for holiday detection:", fullConversationText);
 
-    // 🔥 BUILD CONTEXT DI BACKGROUND (NON BLOCKING)
-    getOrBuildTripContext(sessionId, fullConversationText)
-      .catch(e => console.log("TripContext async failed"));
+    const tripContext = await getOrBuildTripContext(sessionId, fullConversationText);
 
-
-    // 🔥 AMBIL CACHE DB AJA (INSTANT)
-    const sessionCache = await prisma.chatSession.findUnique({
-      where: { id: sessionId },
-      select: {
-        holidaySummary: true,
-        disasterSummary: true
-      }
-    });
+    const eventSummary = (await buildEventsContext(fullConversationText)) ?? "None";
 
     const holidaySummary =
-      sessionCache?.holidaySummary ??
-      "No major national public holidays are typically observed during these dates.";
-
+    tripContext?.holidaySummary ??
+    "No major national public holidays are typically observed during these dates.";
+  
     const newsSummary =
-      sessionCache?.disasterSummary ??
-      "No major travel disruptions or safety advisories are widely reported at this time.";
-    
-
+      tripContext?.newsSummary ??
+      "No major travel disruptions or safety advisories are widely reported at this time.";  
 
     history.unshift({
       role: "system",
       content: `
     ### VERIFIED TRAVEL CONTEXT (INTERNAL DATA)
     
-    The following information is verified and MUST be reflected in the travel context sections.
+    MAJOR EVENTS:
+    ${eventSummary}
     
     NATIONAL HOLIDAYS:
     ${holidaySummary}
@@ -511,7 +551,7 @@ export async function processMessage(
     TRAVEL SAFETY & DISASTER ALERTS:
     ${newsSummary}
     `.trim(),
-    });    
+    });  
 
     while (true) {
       const completion = await openai.chat.completions.create({
@@ -930,6 +970,18 @@ export async function processMessage(
                                     : "Limited"
                               }
                             };
+
+                            const hotelMatch =
+                              fullConversationText.match(/i have (.+?) hotel/i);
+
+                            const hotelBudgetMatch =
+                              fullConversationText.match(/pay (\d+)\s?usd.*hotel/i);
+
+                            const flightMatch =
+                              fullConversationText.match(/Air[A-Za-z\s]+/i);
+
+                            const transportMatch =
+                              fullConversationText.match(/alphard with driver/i);
                         
                             await saveTripContext({
                               sessionId,
@@ -939,8 +991,14 @@ export async function processMessage(
                               endDate: parsedDates.end,
                               holidaySummary,
                               disasterSummary: newsSummary,
-                              weatherPayload: formattedWeather, // ✅ SAVE YANG UDAH DI MAP
+                              weatherPayload: formattedWeather,
+                            
+                              hotelName: hotelMatch?.[1] ?? null,
+                              hotelBudget: hotelBudgetMatch?.[1] ?? null,
+                              flightInfo: flightMatch?.[0] ?? null,
+                              groundTransport: transportMatch?.[0] ?? "Private Driver",
                             });
+                              
                           }
                         
                           break;
@@ -979,14 +1037,24 @@ export async function processMessage(
           history.push(toolCall);
         }
       
-        if (acc && acc.includes("|")) {
-          console.log("💾 Saving itinerary from TOOL LOOP...");
-          await trySaveItinerary(sessionId, acc);
+        const summary =
+          typeof assistantMessage.content === "string"
+            ? assistantMessage.content
+            : Array.isArray(assistantMessage.content)
+            ? (assistantMessage.content as any[])
+                .map((p: any) => p.text ?? "")
+                .join("")
+            : "";
+      
+        if (isFinalItinerary(summary)) {
+          console.log("💾 FINAL TOOL ITINERARY DETECTED");
+          await trySaveItinerary(sessionId, summary);
         }
       
         continue;
-      }
-       else {
+      }      
+      else {
+
         const assistantMessage: ChatCompletionMessageParam = {
           role: "assistant",
           content: acc.trim(),
@@ -995,12 +1063,47 @@ export async function processMessage(
         await saveMessage(sessionId, assistantMessage);
         history.push(assistantMessage);
       
-        // 🔥 SAVE ITINERARY DARI FINAL MESSAGE
-        await trySaveItinerary(sessionId, assistantMessage.content);
+        const summary =
+          typeof assistantMessage.content === "string"
+            ? assistantMessage.content
+            : Array.isArray(assistantMessage.content)
+            ? assistantMessage.content.map(p => ("text" in p ? p.text : "")).join("")
+            : "";
+      
+        // ✅ SAVE ONLY FINAL TABLE
+        if (isFinalItinerary(summary)) {
+      
+          console.log("💾 FINAL STREAM ITINERARY DETECTED");
+      
+          await trySaveItinerary(sessionId, summary);
+      
+          const hotelMatch =
+            summary.match(/ACCOMMODATION:\s*(.*)/i);
+      
+          const transportMatch =
+            summary.match(/TRANSPORT:\s*(.*)/i);
+      
+          const flightMatch =
+            summary.match(/Air[A-Za-z\s]+.*?\$?\d+.*USD/i);
+      
+          try {
+            await prisma.tripContext.update({
+              where: { sessionId },
+              data: {
+                hotelName: hotelMatch?.[1]?.trim() ?? null,
+                groundTransport: transportMatch?.[1]?.trim() ?? null,
+                flightInfo: flightMatch?.[0]?.trim() ?? null,
+              },
+            });
+          } catch (e) {
+            console.log("TripContext summary update skipped");
+          }
+        }
       
         emit(`msg-${sessionId}`, "\n\0");
         break;
-      }      
+      }
+      
     }
     return true;
   } catch (error) {

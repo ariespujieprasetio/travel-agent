@@ -18,6 +18,17 @@ function fixBrokenEncoding(text: string): string {
     .replace(/Â/g, "");
 }
 
+function formatCurrency(amount: number, currency: string) {
+
+  const symbolMap: any = {
+    JPY: "¥",
+    USD: "$",
+    IDR: "Rp"
+  };
+
+  return `${symbolMap[currency] ?? ""}${amount.toLocaleString()} ${currency}`;
+}
+
 function cleanText(text: string): string {
   return fixBrokenEncoding(text)
     .replace(/☔/g, "(Umbrella recommended)")
@@ -31,10 +42,25 @@ function cleanText(text: string): string {
 
 /* ================= COST PARSER ================= */
 
-function parseCost(val?: string | null): number {
-  if (!val) return 0;
-  const num = val.replace(/[^\d]/g, "");
-  return num ? parseInt(num, 10) : 0;
+function parseCost(val?: string | null): { amount: number; currency: string | null } {
+
+  if (!val) return { amount: 0, currency: null };
+
+  if (/free|included|-/i.test(val))
+    return { amount: 0, currency: null };
+
+  const amount = parseInt(val.replace(/[^\d]/g, "")) || 0;
+
+  if (/JPY|¥/i.test(val))
+    return { amount, currency: "JPY" };
+
+  if (/USD|\$/i.test(val))
+    return { amount, currency: "USD" };
+
+  if (/IDR|Rp/i.test(val))
+    return { amount, currency: "IDR" };
+
+  return { amount: 0, currency: null };
 }
 
 /* ================= TABLE DRAW HELPER ================= */
@@ -50,10 +76,19 @@ function drawTable(doc, headers, rows, startY, startX = 40)
   // HEADER
   headers.forEach((h, i) => {
     doc.rect(startX + i * columnWidth, y, columnWidth, 25)
-    .fillAndStroke("#9933FF", "#000");
-
-    doc.fillColor("#FFFFFF")
-       .text(h, 45 + i * columnWidth, y + 7, { width: columnWidth - 10 });
+    .fill("#9933FF")
+    .stroke("#000");
+ 
+ doc.fillColor("#FFFFFF")
+    .text(
+      h,
+      startX + 5 + i * columnWidth,
+      y + 7,
+      {
+        width: columnWidth - 10,
+        align: "left"
+      }
+    );
   });
 
   y += 25;
@@ -252,24 +287,67 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
 
   doc.moveDown(2).fillColor("#000000");
 
-  let total = 0;
-  const dayTotals: Record<string, number> = {};
+  const currencyTotals: Record<string, number> = {};
+  const dayTotals: Record<string, Record<string, number>> = {};
 
   Object.keys(grouped).forEach((day) => {
+
     grouped[Number(day)].forEach((it) => {
-      const cost = parseCost(it.price);
-      total += cost;
-      dayTotals[day] = (dayTotals[day] || 0) + cost;
+  
+      const { amount, currency } = parseCost(it.price);
+  
+      if (!currency || amount === 0) return; // ⛔ skip FREE
+  
+      currencyTotals[currency] =
+        (currencyTotals[currency] || 0) + amount;
+  
+      if (!dayTotals[day]) dayTotals[day] = {};
+  
+      dayTotals[day][currency] =
+        (dayTotals[day][currency] || 0) + amount;
     });
+  
   });
 
+  const totalDays = Object.keys(grouped).length;
+
+  const accommodation =
+  context?.hotelName
+    ? context.hotelBudget
+      ? `${context.hotelName} ($${context.hotelBudget})`
+      : context.hotelName
+    : "-";
+
+  const transportation =
+  context?.flightInfo && context?.groundTransport
+    ? `${context.flightInfo} + ${context.groundTransport}`
+    : context?.groundTransport ||
+      context?.flightInfo ||
+      "-";  
+
+  const totalRows = Object.entries(currencyTotals).map(
+    ([cur, amt]) => formatCurrency(amt, cur)
+  );
+  
+  const avgRows = Object.entries(currencyTotals).map(
+    ([cur, amt]) => formatCurrency(Math.round(amt / totalDays), cur)
+  );
+  
   const budgetRows = [
-    ["Total Estimated Cost", `$${total.toLocaleString()}`],
-    ["Daily Average", `$${Math.round(total / Object.keys(grouped).length).toLocaleString()}`],
+    ["Total Estimated Cost", totalRows.join(" / ")],
+    ["Daily Average Per Person", avgRows.join(" / ")],
+    ["Accommodation", accommodation],
+    ["Transportation", transportation],
   ];
 
   Object.keys(dayTotals).forEach((day) => {
-    budgetRows.push([`Day ${day} Total`, `$${dayTotals[day].toLocaleString()}`]);
+
+    const totals = Object.entries(dayTotals[day])
+      .map(([cur, amt]) => formatCurrency(amt, cur))
+      .join(" / ");
+  
+    budgetRows.push([`Day ${day} Total`, totals]);
+  
   });
 
   drawTable(doc, ["Category", "Amount"], budgetRows, doc.y + 10);
