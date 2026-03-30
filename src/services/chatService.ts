@@ -9,10 +9,13 @@ import * as placesService from "./googlePlacesService";
 import { Prisma } from "@prisma/client";
 import { generateSessionTitle } from "./titleGeneratorService";
 import { TravelMode } from "@googlemaps/google-maps-services-js";
-import * as travelService from "../config/travelpayouts"; 
+import * as travelService from "../config/travelpayouts";
 import * as weatherService from "../config/weather";
 import { fetchHolidays } from "./holidayService";
-import { getHolidaysInRange, formatHolidaySummary } from "../utils/holidayUtils";
+import {
+  getHolidaysInRange,
+  formatHolidaySummary,
+} from "../utils/holidayUtils";
 import { resolveCountryCode } from "./locationService";
 import {
   fetchDisasterAlertsByCountry,
@@ -28,75 +31,72 @@ function isFinalItinerary(content: string): boolean {
 
 async function trySaveItinerary(sessionId: string, rawContent: any) {
   try {
-
     const content =
       typeof rawContent === "string"
         ? rawContent
         : Array.isArray(rawContent)
-        ? rawContent.map(p => ("text" in p ? p.text : "")).join("")
-        : "";
+          ? rawContent.map((p) => ("text" in p ? p.text : "")).join("")
+          : "";
 
     const match = content.match(
-      /<itinerary_table>([\s\S]*?)<\/itinerary_table>/
+      /<itinerary_table>([\s\S]*?)<\/itinerary_table>/,
     );
-    
+
     if (!match) return;
-    
+
     const markdownTable = match[1];
-    
+
     const dataLines = markdownTable
       .split("\n")
-      .filter(l => l.includes("|") && !l.includes("---"));
-        
+      .filter((l) => l.includes("|") && !l.includes("---"));
 
     let currentDay = 1;
 
-    const rows = dataLines.map(line => {
+    const rows = dataLines
+      .map((line) => {
+        if (line.includes("---")) return null;
 
-      if (line.includes("---")) return null;
+        const cols = line
+          .split("|")
+          .map((c) => c.trim())
+          .slice(1, -1);
 
-      const cols = line
-        .split("|")
-        .map(c => c.trim())
-        .slice(1, -1);
+        // 👇 SUPPORT 6 ATAU 8 KOLOM
+        if (cols.length !== 6 && cols.length !== 8) return null;
 
-      // 👇 SUPPORT 6 ATAU 8 KOLOM
-      if (cols.length !== 6 && cols.length !== 8) return null;
+        const dayMatch = cols[0].match(/\d+/);
+        if (dayMatch) {
+          currentDay = parseInt(dayMatch[0]);
+        }
 
-      const dayMatch = cols[0].match(/\d+/);
-      if (dayMatch) {
-        currentDay = parseInt(dayMatch[0]);
-      }
+        if (cols.length === 6) {
+          // FORMAT SIMPLE
+          return {
+            sessionId,
+            dayNumber: currentDay,
+            time: cols[1] || null,
+            title: cols[2] || null,
+            description: cols[5] || null,
+            location: cols[3] || null,
+            price: cols[4] || null,
+          };
+        }
 
-      if (cols.length === 6) {
-        // FORMAT SIMPLE
-        return {
-          sessionId,
-          dayNumber: currentDay,
-          time: cols[1] || null,
-          title: cols[2] || null,
-          description: cols[5] || null,
-          location: cols[3] || null,
-          price: cols[4] || null,
-        };
-      }
-
-      if (cols.length === 8) {
-        // FORMAT FULL
-        return {
-          sessionId,
-          dayNumber: currentDay,
-          time: cols[2] || null,
-          title: cols[3] || null,
-          description:
-            (cols[4] ? cols[4] + "\n" : "") +
-            (cols[7] ? cols[7] : ""),
-          location: cols[5] || null,
-          price: cols[6] || null,
-        };
-      }
-
-    }).filter(Boolean);
+        if (cols.length === 8) {
+          // FORMAT FULL
+          return {
+            sessionId,
+            dayNumber: currentDay,
+            time: cols[2] || null,
+            title: cols[3] || null,
+            description:
+              (cols[4] ? cols[4] + "\n" : "") + (cols[7] ? cols[7] : ""),
+            location: cols[5] || null,
+            price: cols[6] || null,
+          };
+        }
+      })
+      .filter(Boolean);
 
     if (!rows.length) {
       console.log("❌ NO VALID ROWS PARSED");
@@ -109,7 +109,6 @@ async function trySaveItinerary(sessionId: string, rawContent: any) {
     await prisma.tripItinerary.createMany({ data: rows });
 
     console.log("✅ Itinerary saved FIXED:", rows.length, "rows");
-
   } catch (err) {
     console.error("❌ Failed saving itinerary:", err);
   }
@@ -141,7 +140,7 @@ async function saveTripContext(params: {
         holidaySummary: params.holidaySummary,
         disasterSummary: params.disasterSummary,
         weatherJson: params.weatherPayload,
-      
+
         hotelName: params.hotelName,
         hotelBudget: params.hotelBudget,
         flightInfo: params.flightInfo,
@@ -156,13 +155,13 @@ async function saveTripContext(params: {
         holidaySummary: params.holidaySummary,
         disasterSummary: params.disasterSummary,
         weatherJson: params.weatherPayload,
-      
+
         hotelName: params.hotelName,
         hotelBudget: params.hotelBudget,
         flightInfo: params.flightInfo,
         groundTransport: params.groundTransport,
       },
-    });    
+    });
 
     console.log("🌍 Trip context saved");
   } catch (err) {
@@ -172,7 +171,7 @@ async function saveTripContext(params: {
 
 export async function saveMessage(
   sessionId: string,
-  message: ChatCompletionMessageParam
+  message: ChatCompletionMessageParam,
 ): Promise<void> {
   const { role } = message;
 
@@ -199,8 +198,8 @@ export async function saveMessage(
           typeof message.content === "string"
             ? message.content
             : message.content
-            ? JSON.stringify(message.content)
-            : "",
+              ? JSON.stringify(message.content)
+              : "",
         toolCalls: toolCalls ? JSON.stringify(toolCalls) : Prisma.JsonNull,
       },
     });
@@ -247,7 +246,7 @@ export async function getChatSessions(
     saveFilter?: boolean;
     limit?: number;
     offset?: number;
-  } = {}
+  } = {},
 ) {
   const { includeTempSessions = false, saveFilter } = options;
   const whereClause: any = { userId };
@@ -265,7 +264,7 @@ export async function getChatSessions(
 }
 
 export async function getMessagesForChat(
-  sessionId: string
+  sessionId: string,
 ): Promise<ChatCompletionMessageParam[]> {
   const messages = await prisma.message.findMany({
     where: { sessionId },
@@ -308,7 +307,9 @@ function parseDates(text: string): { start: string; end: string } | null {
     };
   }
 
-  const rangeMatch = text.match(/(\d{1,2})\s*-\s*(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/i);
+  const rangeMatch = text.match(
+    /(\d{1,2})\s*-\s*(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/i,
+  );
   if (rangeMatch) {
     const [, d1, d2, monthName, year] = rangeMatch;
 
@@ -391,8 +392,7 @@ async function buildEventsContext(message: string) {
 
   const events = await placesService.findLocalEvents(city, undefined, 5);
 
-  if (!events || events.length === 0)
-    return "None";
+  if (!events || events.length === 0) return "None";
 
   return events.map((e: any) => e.displayName?.text ?? e.name).join(", ");
 }
@@ -497,16 +497,16 @@ async function getOrBuildTripContext(sessionId: string, text: string) {
 export async function processMessage(
   sessionId: string,
   message: string,
-  emit: (topic: string, data: string) => void
+  emit: (topic: string, data: string) => void,
 ): Promise<boolean> {
   try {
     let history = await getMessagesForChat(sessionId);
     if (history.length === 0) {
       const systemMessage: ChatCompletionMessageParam = {
         role: "system",
-        content: getSystemPrompt(), 
+        content: getSystemPrompt(),
       };
-    
+
       await saveMessage(sessionId, systemMessage);
       history = [systemMessage];
     }
@@ -519,23 +519,30 @@ export async function processMessage(
     history.push(userMessage);
 
     const fullConversationText = history
-    .filter(m => m.role === "user" && typeof m.content === "string")
-    .map(m => m.content)
-    .join(" ");
+      .filter((m) => m.role === "user" && typeof m.content === "string")
+      .map((m) => m.content)
+      .join(" ");
 
-    console.log("Full conversation for holiday detection:", fullConversationText);
+    console.log(
+      "Full conversation for holiday detection:",
+      fullConversationText,
+    );
 
-    const tripContext = await getOrBuildTripContext(sessionId, fullConversationText);
+    const tripContext = await getOrBuildTripContext(
+      sessionId,
+      fullConversationText,
+    );
 
-    const eventSummary = (await buildEventsContext(fullConversationText)) ?? "None";
+    const eventSummary =
+      (await buildEventsContext(fullConversationText)) ?? "None";
 
     const holidaySummary =
-    tripContext?.holidaySummary ??
-    "No major national public holidays are typically observed during these dates.";
-  
+      tripContext?.holidaySummary ??
+      "No major national public holidays are typically observed during these dates.";
+
     const newsSummary =
       tripContext?.newsSummary ??
-      "No major travel disruptions or safety advisories are widely reported at this time.";  
+      "No major travel disruptions or safety advisories are widely reported at this time.";
 
     history.unshift({
       role: "system",
@@ -551,7 +558,7 @@ export async function processMessage(
     TRAVEL SAFETY & DISASTER ALERTS:
     ${newsSummary}
     `.trim(),
-    });  
+    });
 
     while (true) {
       const completion = await openai.chat.completions.create({
@@ -578,7 +585,7 @@ export async function processMessage(
           toolCallStarted = true;
           emit(`msg-${sessionId}`, "__LOADING__");
         }
-        
+
         if (!toolCallStarted && delta.content) {
           emit(`msg-${sessionId}`, delta.content);
           acc += delta.content;
@@ -624,9 +631,9 @@ export async function processMessage(
                         content: JSON.stringify(
                           data.returnTotalOnly
                             ? await placesService.calculateTotalRouteDistance(
-                                data.route
+                                data.route,
                               )
-                            : await placesService.calculateDistance(data.route)
+                            : await placesService.calculateDistance(data.route),
                         ),
                         tool_call_id: toolId,
                       });
@@ -638,8 +645,8 @@ export async function processMessage(
                         content: JSON.stringify(
                           await placesService.findTravelDestinations(
                             data.city,
-                            data.count
-                          )
+                            data.count,
+                          ),
                         ),
                         tool_call_id: toolId,
                       });
@@ -651,39 +658,37 @@ export async function processMessage(
                         content: JSON.stringify(
                           await travelService.find_car_rentals(
                             data.city,
-                            data.count
-                          )
+                            data.count,
+                          ),
                         ),
                         tool_call_id: toolId,
                       });
                       break;
 
-                      case "search_flights": {
+                    case "search_flights": {
+                      let flights = [];
 
-                        let flights = [];
-                      
-                        try {
-                          flights = await travelService.search_flights(
-                            data.origin,
-                            data.destination,
-                            data.departDate,
-                            data.returnDate
-                          );
-                        } catch (e) {
-                          console.log("⚠️ Flight API failed");
-                        }
-                      
-                        if (!flights || flights.length === 0) {
-                      
-                          const bookingFlightLink =
-                            `https://www.booking.com/flights/index.html?` +
-                            `from=${data.origin}&to=${data.destination}` +
-                            `&depart=${data.departDate}` +
-                            (data.returnDate ? `&return=${data.returnDate}` : "");
-                      
-                          toolsCalls.push({
-                            role: "tool",
-                            content: `
+                      try {
+                        flights = await travelService.search_flights(
+                          data.origin,
+                          data.destination,
+                          data.departDate,
+                          data.returnDate,
+                        );
+                      } catch (e) {
+                        console.log("⚠️ Flight API failed");
+                      }
+
+                      if (!flights || flights.length === 0) {
+                        const bookingFlightLink =
+                          `https://www.booking.com/flights/index.html?` +
+                          `from=${data.origin}&to=${data.destination}` +
+                          `&depart=${data.departDate}` +
+                          (data.returnDate ? `&return=${data.returnDate}` : "");
+
+                        toolsCalls.push({
+                          role: "tool",
+                          content: `
                       No flights were found for your selected dates via our airline provider.
                       
                       However, you can still explore available options here:
@@ -691,44 +696,45 @@ export async function processMessage(
                       ✈️ Search flights on Booking.com:
                       ${bookingFlightLink}
                             `,
-                            tool_call_id: toolId,
-                          });
-                      
-                          break;
-                        }
-                      
-                        // ✅ NORMAL RESPONSE
-                        toolsCalls.push({
-                          role: "tool",
-                          content: JSON.stringify(flights),
                           tool_call_id: toolId,
                         });
-                      
+
                         break;
-                      }                      
-                      case "find_hotels": {
-                        const hotels = await placesService.findHotels(
-                          data.city,
-                          data.stars || 4,
-                          data.nearCBD ?? false
-                        );
-                      
-                        if (!hotels.length) {
-                          toolsCalls.push({
-                            role: "tool",
-                            content: "No hotels found.",
-                            tool_call_id: toolId,
-                          });
-                          break;
-                        }
-                      
-                        const hotelMessage = hotels.map(h => {
+                      }
+
+                      // ✅ NORMAL RESPONSE
+                      toolsCalls.push({
+                        role: "tool",
+                        content: JSON.stringify(flights),
+                        tool_call_id: toolId,
+                      });
+
+                      break;
+                    }
+                    case "find_hotels": {
+                      const hotels = await placesService.findHotels(
+                        data.city,
+                        data.stars || 4,
+                        data.nearCBD ?? false,
+                      );
+
+                      if (!hotels.length) {
+                        toolsCalls.push({
+                          role: "tool",
+                          content: "No hotels found.",
+                          tool_call_id: toolId,
+                        });
+                        break;
+                      }
+
+                      const hotelMessage = hotels
+                        .map((h) => {
                           const bookingSearchQuery = `${h.displayName.text}, ${data.city}`;
-                      
+
                           const deeplink = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(
-                            bookingSearchQuery
+                            bookingSearchQuery,
                           )}&checkin=${data.checkIn}&checkout=${data.checkOut}&group_adults=${data.adults || 2}&nflt=class=${data.stars || 4}`;
-                      
+
                           return `
                       **${h.displayName.text}**
                       ⭐ Rating: ${h.rating ?? "-"}
@@ -737,40 +743,41 @@ export async function processMessage(
                       🔗 Book on Booking.com:
                       ${deeplink}
                       `;
-                        }).join("\n");
-                      
+                        })
+                        .join("\n");
+
+                      toolsCalls.push({
+                        role: "tool",
+                        content: hotelMessage,
+                        tool_call_id: toolId,
+                      });
+                      break;
+                    }
+
+                    case "find_top_rated_hotels": {
+                      const hotels = await placesService.findTopRatedHotels(
+                        data.city,
+                        data.stars || 4,
+                        data.count || 3,
+                      );
+
+                      if (!hotels.length) {
                         toolsCalls.push({
                           role: "tool",
-                          content: hotelMessage,
+                          content: "No top-rated hotels found.",
                           tool_call_id: toolId,
                         });
                         break;
                       }
-                                        
 
-                      case "find_top_rated_hotels": {
-                        const hotels = await placesService.findTopRatedHotels(
-                          data.city,
-                          data.stars || 4,
-                          data.count || 3
-                        );
-                      
-                        if (!hotels.length) {
-                          toolsCalls.push({
-                            role: "tool",
-                            content: "No top-rated hotels found.",
-                            tool_call_id: toolId,
-                          });
-                          break;
-                        }
-                      
-                        const msg = hotels.map(h => {
+                      const msg = hotels
+                        .map((h) => {
                           const bookingQuery = `${h.displayName.text}, ${data.city}`;
-                      
+
                           const deeplink = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(
-                            bookingQuery
+                            bookingQuery,
                           )}&checkin=${data.checkIn}&checkout=${data.checkOut}&group_adults=${data.adults || 2}&nflt=class=${data.stars || 4}`;
-                      
+
                           return `
                       **${h.displayName.text}**
                       ⭐ Rating: ${h.rating ?? "-"}
@@ -778,16 +785,16 @@ export async function processMessage(
                       🔗 Book on Booking.com:
                       ${deeplink}
                       `;
-                        }).join("\n");
-                      
-                        toolsCalls.push({
-                          role: "tool",
-                          content: msg,
-                          tool_call_id: toolId,
-                        });
-                        break;
-                      }
-                                                                    
+                        })
+                        .join("\n");
+
+                      toolsCalls.push({
+                        role: "tool",
+                        content: msg,
+                        tool_call_id: toolId,
+                      });
+                      break;
+                    }
 
                     case "find_restaurants":
                       toolsCalls.push({
@@ -796,8 +803,8 @@ export async function processMessage(
                           await placesService.findRestaurants(
                             data.city,
                             data.cuisine,
-                            data.count || 3
-                          )
+                            data.count || 3,
+                          ),
                         ),
                         tool_call_id: toolId,
                       });
@@ -810,8 +817,8 @@ export async function processMessage(
                           await placesService.findNightlife(
                             data.city,
                             data.type,
-                            data.count || 3
-                          )
+                            data.count || 3,
+                          ),
                         ),
                         tool_call_id: toolId,
                       });
@@ -824,8 +831,8 @@ export async function processMessage(
                           await placesService.findMeetingVenues(
                             data.city,
                             data.type,
-                            data.count || 3
-                          )
+                            data.count || 3,
+                          ),
                         ),
                         tool_call_id: toolId,
                       });
@@ -837,8 +844,8 @@ export async function processMessage(
                         content: JSON.stringify(
                           await placesService.findLocalEvents(
                             data.city,
-                            data.count || 5
-                          )
+                            data.count || 5,
+                          ),
                         ),
                         tool_call_id: toolId,
                       });
@@ -851,8 +858,8 @@ export async function processMessage(
                           await placesService.findTopRatedRestaurants(
                             data.city,
                             data.cuisine,
-                            data.count || 3
-                          )
+                            data.count || 3,
+                          ),
                         ),
                         tool_call_id: toolId,
                       });
@@ -865,144 +872,131 @@ export async function processMessage(
                           await placesService.findTopRatedMeetingVenues(
                             data.city,
                             data.type,
-                            data.count || 3
-                          )
+                            data.count || 3,
+                          ),
                         ),
                         tool_call_id: toolId,
                       });
                       break;
 
-                      case "find_top_rated_attractions":
-                        const step9Reached = history.some(
-                          (m) =>
-                            m.role === "assistant" &&
-                            typeof m.content === "string" &&
-                            m.content.includes("Step 9")
+                    case "find_top_rated_attractions": {
+                      const attractions =
+                        await placesService.findTopRatedAttractions(
+                          data.city,
+                          data.count || 5,
                         );
-                      
-                        if (!step9Reached) {
-                          console.log("Blocked attractions tool call before Step 9");
-                          toolsCalls.push({
-                            role: "tool",
-                            content: JSON.stringify({
-                              error: "Tourist attractions are not available until Step 9 of the flow."
-                            }),
-                            tool_call_id: toolId,
-                          });
-                          break;
-                        }
-                      
-                        toolsCalls.push({
-                          role: "tool",
-                          content: JSON.stringify(
-                            await placesService.findTopRatedAttractions(
-                              data.city,
-                              data.count || 5
-                            )
-                          ),
-                          tool_call_id: toolId,
+
+                      toolsCalls.push({
+                        role: "tool",
+                        content: JSON.stringify({
+                          type: "attractions",
+                          data: attractions,
+                        }),
+                        tool_call_id: toolId,
+                      });
+
+                      break;
+                    }
+
+                    case "get_weather": {
+                      const weatherPayload = await weatherService.getWeather(
+                        data.city,
+                      );
+
+                      toolsCalls.push({
+                        role: "tool",
+                        content: JSON.stringify({
+                          type: "weather_report",
+                          ...weatherPayload,
+                        }),
+                        tool_call_id: toolId,
+                      });
+
+                      const parsedDates = parseDates(fullConversationText);
+                      const countryCode = await resolveCountryCode(data.city);
+
+                      if (parsedDates && countryCode) {
+                        // 🔥 FORMAT TOOL RESPONSE → PDF FORMAT
+                        const formattedWeather = {
+                          current: {
+                            temperature_c:
+                              weatherPayload.current?.temperature_c ?? null,
+                            feels_like_c:
+                              weatherPayload.current?.feels_like_c ?? null,
+
+                            humidity:
+                              weatherPayload.current?.humidity_percent ?? null,
+
+                            wind_kph: weatherPayload.current?.wind_speed_mps
+                              ? weatherPayload.current.wind_speed_mps * 3.6
+                              : null,
+
+                            cloud:
+                              weatherPayload.current?.cloud_coverage_percent ??
+                              null,
+
+                            vis_km:
+                              weatherPayload.current?.visibility_km ?? null,
+
+                            description:
+                              weatherPayload.current?.description ?? "-",
+                          },
+
+                          forecast_summary:
+                            weatherPayload.forecast_summary ?? "-",
+
+                          alerts: weatherPayload.alerts ?? [],
+
+                          insights: {
+                            umbrella: weatherPayload.insights
+                              ?.umbrellaRecommended
+                              ? "Recommended"
+                              : "Not needed",
+
+                            beach: weatherPayload.insights?.windAdvisory
+                              ? "Not recommended"
+                              : "Suitable",
+
+                            sunset_visibility: weatherPayload.insights
+                              ?.goodSunsetVisibility
+                              ? "Good"
+                              : "Limited",
+                          },
+                        };
+
+                        const hotelMatch =
+                          fullConversationText.match(/i have (.+?) hotel/i);
+
+                        const hotelBudgetMatch = fullConversationText.match(
+                          /pay (\d+)\s?usd.*hotel/i,
+                        );
+
+                        const flightMatch =
+                          fullConversationText.match(/Air[A-Za-z\s]+/i);
+
+                        const transportMatch =
+                          fullConversationText.match(/alphard with driver/i);
+
+                        await saveTripContext({
+                          sessionId,
+                          city: data.city,
+                          countryCode,
+                          startDate: parsedDates.start,
+                          endDate: parsedDates.end,
+                          holidaySummary,
+                          disasterSummary: newsSummary,
+                          weatherPayload: formattedWeather,
+
+                          hotelName: hotelMatch?.[1] ?? null,
+                          hotelBudget: hotelBudgetMatch?.[1] ?? null,
+                          flightInfo: flightMatch?.[0] ?? null,
+                          groundTransport:
+                            transportMatch?.[0] ?? "Private Driver",
                         });
-                        break;
+                      }
 
-                        case "get_weather": {
-
-                          const weatherPayload = await weatherService.getWeather(data.city);
-                        
-                          toolsCalls.push({
-                            role: "tool",
-                            content: JSON.stringify({
-                              type: "weather_report",
-                              ...weatherPayload,
-                            }),
-                            tool_call_id: toolId,
-                          });
-                        
-                          const parsedDates = parseDates(fullConversationText);
-                          const countryCode = await resolveCountryCode(data.city);
-                        
-                          if (parsedDates && countryCode) {
-                        
-                            // 🔥 FORMAT TOOL RESPONSE → PDF FORMAT
-                            const formattedWeather = {
-                        
-                              current: {
-                                temperature_c: weatherPayload.current?.temperature_c ?? null,
-                                feels_like_c: weatherPayload.current?.feels_like_c ?? null,
-                        
-                                humidity:
-                                  weatherPayload.current?.humidity_percent ?? null,
-                        
-                                wind_kph:
-                                  weatherPayload.current?.wind_speed_mps
-                                    ? weatherPayload.current.wind_speed_mps * 3.6
-                                    : null,
-                        
-                                cloud:
-                                  weatherPayload.current?.cloud_coverage_percent ?? null,
-                        
-                                vis_km:
-                                  weatherPayload.current?.visibility_km ?? null,
-                        
-                                description:
-                                  weatherPayload.current?.description ?? "-"
-                              },
-                        
-                              forecast_summary:
-                                weatherPayload.forecast_summary ?? "-",
-                        
-                              alerts:
-                                weatherPayload.alerts ?? [],
-                        
-                              insights: {
-                                umbrella:
-                                  weatherPayload.insights?.umbrellaRecommended
-                                    ? "Recommended"
-                                    : "Not needed",
-                        
-                                beach:
-                                  weatherPayload.insights?.windAdvisory
-                                    ? "Not recommended"
-                                    : "Suitable",
-                        
-                                sunset_visibility:
-                                  weatherPayload.insights?.goodSunsetVisibility
-                                    ? "Good"
-                                    : "Limited"
-                              }
-                            };
-
-                            const hotelMatch =
-                              fullConversationText.match(/i have (.+?) hotel/i);
-
-                            const hotelBudgetMatch =
-                              fullConversationText.match(/pay (\d+)\s?usd.*hotel/i);
-
-                            const flightMatch =
-                              fullConversationText.match(/Air[A-Za-z\s]+/i);
-
-                            const transportMatch =
-                              fullConversationText.match(/alphard with driver/i);
-                        
-                            await saveTripContext({
-                              sessionId,
-                              city: data.city,
-                              countryCode,
-                              startDate: parsedDates.start,
-                              endDate: parsedDates.end,
-                              holidaySummary,
-                              disasterSummary: newsSummary,
-                              weatherPayload: formattedWeather,
-                            
-                              hotelName: hotelMatch?.[1] ?? null,
-                              hotelBudget: hotelBudgetMatch?.[1] ?? null,
-                              flightInfo: flightMatch?.[0] ?? null,
-                              groundTransport: transportMatch?.[0] ?? "Private Driver",
-                            });
-                              
-                          }
-                        
-                          break;
-                        }                        
+                      break;
+                    }
 
                     default:
                       toolsCalls.push({
@@ -1022,70 +1016,65 @@ export async function processMessage(
       }
 
       if (callFunction) {
-
         const assistantMessage: ChatCompletionMessageParam = {
           role: "assistant",
           content: acc,
           tool_calls: toolsCallsDetail,
         };
-      
+
         await saveMessage(sessionId, assistantMessage);
         history.push(assistantMessage);
-      
+
         for (const toolCall of toolsCalls) {
           await saveMessage(sessionId, toolCall);
           history.push(toolCall);
         }
-      
+
         const summary =
           typeof assistantMessage.content === "string"
             ? assistantMessage.content
             : Array.isArray(assistantMessage.content)
-            ? (assistantMessage.content as any[])
-                .map((p: any) => p.text ?? "")
-                .join("")
-            : "";
-      
+              ? (assistantMessage.content as any[])
+                  .map((p: any) => p.text ?? "")
+                  .join("")
+              : "";
+
         if (isFinalItinerary(summary)) {
           console.log("💾 FINAL TOOL ITINERARY DETECTED");
           await trySaveItinerary(sessionId, summary);
         }
-      
-        continue;
-      }      
-      else {
 
+        continue;
+      } else {
         const assistantMessage: ChatCompletionMessageParam = {
           role: "assistant",
           content: acc.trim(),
         };
-      
+
         await saveMessage(sessionId, assistantMessage);
         history.push(assistantMessage);
-      
+
         const summary =
           typeof assistantMessage.content === "string"
             ? assistantMessage.content
             : Array.isArray(assistantMessage.content)
-            ? assistantMessage.content.map(p => ("text" in p ? p.text : "")).join("")
-            : "";
-      
+              ? assistantMessage.content
+                  .map((p) => ("text" in p ? p.text : ""))
+                  .join("")
+              : "";
+
         // ✅ SAVE ONLY FINAL TABLE
         if (isFinalItinerary(summary)) {
-      
           console.log("💾 FINAL STREAM ITINERARY DETECTED");
-      
+
           await trySaveItinerary(sessionId, summary);
-      
-          const hotelMatch =
-            summary.match(/ACCOMMODATION:\s*(.*)/i);
-      
-          const transportMatch =
-            summary.match(/TRANSPORT:\s*(.*)/i);
-      
-          const flightMatch =
-            summary.match(/Air[A-Za-z\s]+.*?\$?\d+.*USD/i);
-      
+
+          const hotelMatch = summary.match(/ACCOMMODATION:\s*(.*)/i);
+
+          const transportMatch = summary.match(/TRANSPORT:\s*(.*)/i);
+
+          const flightMatch = summary.match(/Air[A-Za-z\s]+.*?\$?\d+.*USD/i);
+
           try {
             await prisma.tripContext.update({
               where: { sessionId },
@@ -1099,11 +1088,10 @@ export async function processMessage(
             console.log("TripContext summary update skipped");
           }
         }
-      
+
         emit(`msg-${sessionId}`, "\n\0");
         break;
       }
-      
     }
     return true;
   } catch (error) {
@@ -1114,7 +1102,7 @@ export async function processMessage(
 
 export async function initializeChat(
   sessionId: string,
-  emit: (topic: string, data: string) => void
+  emit: (topic: string, data: string) => void,
 ): Promise<boolean> {
   try {
     let history = await getMessagesForChat(sessionId);
