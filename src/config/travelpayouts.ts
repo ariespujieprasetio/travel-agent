@@ -1,10 +1,3 @@
-// travelpayouts.ts — Velutara Final Edition
-// -------------------------------------------------------------
-// Hotel API : hotellook (engine.hotellook.com)
-// Flight API: /v1/prices/cheap (primary), fallback to /aviasales/v3/prices_for_dates
-// CarRent   : placeholder (TP doesn’t provide; you can swap later)
-// -------------------------------------------------------------
-
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 
@@ -15,13 +8,10 @@ if (!API_TOKEN) {
   throw new Error("TRAVELPAYOUTS_API_TOKEN is not set in your .env file");
 }
 
-const BASE_HOTEL_URL = "https://engine.hotellook.com/api/v2";
+const BASE_HOTEL_URL = "https://engine.hotellook.com/api";
 const BASE_FLIGHT_URL = "https://api.travelpayouts.com/v1/prices/cheap";
 const BASE_FLIGHT_CACHE_URL = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 
-//--------------------------------------------------------------
-// Types
-//--------------------------------------------------------------
 interface Coordinates {
   lat: number;
   lon: number;
@@ -38,9 +28,6 @@ export interface Hotel {
   deeplink?: string;
 }
 
-//--------------------------------------------------------------
-// Helpers
-//--------------------------------------------------------------
 function ensureHeaders() {
   return { "X-Access-Token": API_TOKEN } as Record<string, string>;
 }
@@ -57,9 +44,10 @@ function addDays(base: Date, days: number) {
   return d.toISOString().split("T")[0];
 }
 
-//--------------------------------------------------------------
-// 1) HOTEL SEARCH (HotelLook → Redirect ke Booking.com)
-//--------------------------------------------------------------
+function normalizeCity(city: string) {
+  return city.split(",")[0].trim();
+}
+
 export async function find_hotels(
   city: string,
   stars: number,
@@ -70,7 +58,7 @@ export async function find_hotels(
 ): Promise<Hotel[]> {
   try {
     const qs = new URLSearchParams();
-    qs.append("location", city);
+    qs.append("location", normalizeCity(city));
     qs.append("checkIn", checkIn);
     qs.append("checkOut", checkOut);
     qs.append("currency", "usd");
@@ -87,7 +75,7 @@ export async function find_hotels(
       throw new Error(`Hotel search failed: ${res.status} ${text}`);
     }
 
-    const data: any[] = await res.json();
+    const data: any[] = await res.json() as any[];
     const result: Hotel[] = [];
 
     for (const h of data.filter((h) => h.stars >= stars).slice(0, limit)) {
@@ -116,7 +104,6 @@ export async function find_hotels(
         price_from: detail.priceFrom || detail.price || 0,
         price_to: detail.priceTo || undefined,
         phone: detail.phone || "Phone not available",
-        // 🔗 Redirect langsung ke Booking.com
         deeplink: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(
           city
         )}&checkin=${checkIn}&checkout=${checkOut}&group_adults=${adults}&nflt=class=${stars}`,
@@ -130,9 +117,6 @@ export async function find_hotels(
   }
 }
 
-/**
- * Ambil hotel top rated
- */
 export async function find_top_rated_hotels(
   city: string,
   stars: number,
@@ -144,9 +128,6 @@ export async function find_top_rated_hotels(
     .slice(0, count);
 }
 
-//--------------------------------------------------------------
-// 1b) HOTEL SEARCH with merged details
-//--------------------------------------------------------------
 export async function search_hotels(
   city: string,
   stars: number,
@@ -157,7 +138,7 @@ export async function search_hotels(
 ): Promise<Hotel[]> {
   try {
     const qs = new URLSearchParams();
-    qs.append("location", city);
+    qs.append("location", normalizeCity(city));
     qs.append("checkIn", checkIn);
     qs.append("checkOut", checkOut);
     qs.append("currency", "usd");
@@ -174,14 +155,13 @@ export async function search_hotels(
       throw new Error(`Hotel search failed: ${res.status} ${text}`);
     }
 
-    const data: any[] = await res.json();
+    const data: any[] = await res.json() as any[];
     const hotels: Hotel[] = [];
 
     for (const h of data.filter((h) => h.stars >= stars).slice(0, limit)) {
       let detail: any = {};
 
       try {
-        // coba ambil detail lewat lookup
         const detailRes = await fetch(
           `${BASE_HOTEL_URL}/lookup.json?query=${encodeURIComponent(
             h.hotelName || h.name
@@ -190,7 +170,7 @@ export async function search_hotels(
         );
         if (detailRes.ok) {
           const lookup = await detailRes.json();
-          detail = lookup?.results?.[0] || {};
+          detail = (lookup as { results?: any[] })?.results?.[0] || {};
         }
       } catch (e) {
         console.warn("Lookup failed for:", h.hotelId, e);
@@ -208,7 +188,6 @@ export async function search_hotels(
         price_from: h.priceFrom || h.price || 0,
         price_to: h.priceTo || undefined,
         phone: detail.phone || "Phone not available",
-        // 🔗 Redirect langsung ke Booking.com
         deeplink: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(
           city
         )}&checkin=${checkIn}&checkout=${checkOut}&group_adults=${adults}&nflt=class=${stars}`,
@@ -222,11 +201,6 @@ export async function search_hotels(
   }
 }
 
-
-//--------------------------------------------------------------
-// 2) FLIGHT SEARCH
-//--------------------------------------------------------------
-// ✅ Airline map lengkap
 const airlineMap: Record<string, { name: string; url: string }> = {
   // Indonesia
   GA: { name: "Garuda Indonesia", url: "https://www.garuda-indonesia.com/" },
@@ -286,7 +260,6 @@ const airlineMap: Record<string, { name: string; url: string }> = {
   TK: { name: "Turkish Airlines", url: "https://www.turkishairlines.com/" },
 };
 
-// 🌍 Mapping bandara → city
 function mapBookingCode(iata: string): { code: string; entity: string; city: string; name: string; countryCode: string } {
   switch (iata) {
     // --- INDONESIA ---
@@ -374,7 +347,6 @@ function mapBookingCode(iata: string): { code: string; entity: string; city: str
 }
 
 
-// 🔁 Cached flights
 async function search_cached_flights(origin: string, destination: string, startDate: string, daysToCheck = 5) {
   const today = new Date(startDate);
   for (let i = 0; i < daysToCheck; i++) {
@@ -382,7 +354,7 @@ async function search_cached_flights(origin: string, destination: string, startD
     const url = `${BASE_FLIGHT_CACHE_URL}?origin=${origin}&destination=${destination}&departure_at=${date}&currency=usd&limit=5&token=${API_TOKEN}`;
     const res = await fetch(url);
     if (res.ok) {
-      const json = await res.json();
+      const json = (await res.json()) as { data?: any[] };
       if (json.data && json.data.length > 0) {
         return normalizeFlights(json.data, origin, destination, date);
       }
@@ -391,8 +363,6 @@ async function search_cached_flights(origin: string, destination: string, startD
   return [];
 }
 
-// 🔁 Normalize flights
-// 🔁 Normalize flights
 function normalizeFlights(
   items: any[],
   origin: string,
@@ -403,7 +373,6 @@ function normalizeFlights(
   return items.map((info: any) => {
     const airline = airlineMap[info.airline];
 
-    // format ddMM
     const dDate = new Date(departDate);
     const depStr = `${String(dDate.getDate()).padStart(2, "0")}${String(
       dDate.getMonth() + 1
@@ -412,14 +381,12 @@ function normalizeFlights(
     let searchPath: string;
 
     if (returnDate && returnDate !== "") {
-      // Roundtrip
       const rDate = new Date(returnDate);
       const retStr = `${String(rDate.getDate()).padStart(2, "0")}${String(
         rDate.getMonth() + 1
       ).padStart(2, "0")}`;
       searchPath = `${origin}${depStr}${destination}${retStr}1`;
     } else {
-      // One-way
       searchPath = `${origin}${depStr}${destination}1`;
     }
 
@@ -444,7 +411,6 @@ function normalizeFlights(
 
 
 
-// 🔎 Main search
 export async function search_flights(origin: string, destination: string, departDate: string, returnDate?: string) {
   try {
     const qs = new URLSearchParams();
@@ -457,7 +423,7 @@ export async function search_flights(origin: string, destination: string, depart
 
     const res = await fetch(`${BASE_FLIGHT_URL}?${qs}`, { headers: ensureHeaders() });
     if (res.ok) {
-      const json = await res.json();
+      const json = (await res.json()) as { data?: Record<string, any> };
       const flightData = json.data?.[destination] || {};
       if (Object.keys(flightData).length > 0) {
         return normalizeFlights(Object.values(flightData), origin, destination, departDate, returnDate);
@@ -471,10 +437,6 @@ export async function search_flights(origin: string, destination: string, depart
   }
 }
 
-
-//--------------------------------------------------------------
-// 3) CAR RENTAL (Booking.com redirect edition)
-//--------------------------------------------------------------
 export interface CarRental {
   supplier: string;
   car_type: string;
@@ -483,30 +445,80 @@ export interface CarRental {
   currency: string;
   pickup_location: string;
   dropoff_location: string;
-  deeplink: string; // 🔗 link ke Booking.com
+  deeplink: string; 
 }
 
 export async function find_car_rentals(
   city: string,
-  count = 10,
+  count = 6,
   days = 3,
   currency = "USD"
 ): Promise<CarRental[]> {
-  const suppliers = ["Avis", "Hertz", "Budget", "Sixt", "Enterprise"];
-  const carTypes = ["Compact", "SUV", "Sedan", "Van", "Convertible"];
 
-  const rentals: CarRental[] = [];
   const today = new Date();
   const pickupDate = today.toISOString().split("T")[0];
-  const dropoffDate = new Date(today.getTime() + days * 24 * 60 * 60 * 1000)
+  const dropoffDate = new Date(today.getTime() + days * 86400000)
     .toISOString()
     .split("T")[0];
 
-  let i = 0;
-  while (rentals.length < count) {
+  // 🔥 MARKET BASE RATE BY CITY
+  const cityBaseRate: Record<string, number> = {
+    singapore: 65,
+    jakarta: 45,
+    bali: 50,
+    tokyo: 85,
+    paris: 90,
+    dubai: 75
+  };
+
+  const base =
+    cityBaseRate[city.toLowerCase()] ??
+    55; // default kalau city unknown
+
+  // 🔥 SUPPLIER PREMIUM FACTOR
+  const supplierFactor = {
+    Avis: 1.15,
+    Hertz: 1.2,
+    Budget: 0.95,
+    Sixt: 1.1,
+    Enterprise: 1.05,
+  };
+
+  // 🔥 CAR TYPE MULTIPLIER
+  const carFactor = {
+    Compact: 0.9,
+    Sedan: 1,
+    SUV: 1.3,
+    Van: 1.4,
+    Convertible: 1.6,
+  };
+
+  const suppliers = Object.keys(supplierFactor);
+  const carTypes = Object.keys(carFactor);
+
+  const rentals: CarRental[] = [];
+
+  for (let i = 0; i < count; i++) {
+
     const supplier = suppliers[i % suppliers.length];
     const car_type = carTypes[i % carTypes.length];
-    const price_per_day = 40 + Math.floor(Math.random() * 60);
+
+    // 🔥 WEEKEND SURCHARGE
+    const isWeekend =
+      today.getDay() === 5 ||
+      today.getDay() === 6;
+
+    const weekendFactor = isWeekend ? 1.15 : 1;
+
+    // 🔥 DYNAMIC PRICE CALC
+    const price_per_day = Math.round(
+      base *
+      supplierFactor[supplier as keyof typeof supplierFactor] *
+      carFactor[car_type as keyof typeof carFactor] *
+      weekendFactor *
+      (0.95 + Math.random() * 0.1) // small fluctuation only
+    );
+
     const total_price = price_per_day * days;
 
     rentals.push({
@@ -517,14 +529,15 @@ export async function find_car_rentals(
       currency,
       pickup_location: city,
       dropoff_location: city,
-      deeplink: `https://www.booking.com/cars/index.id.html?selected_currency=${currency}&aid=304142&pickup=${pickupDate}&dropoff=${dropoffDate}&city=${encodeURIComponent(
-        city
-      )}`,
+      deeplink:
+        `https://www.booking.com/cars/index.id.html?` +
+        `selected_currency=${currency}` +
+        `&aid=304142` +
+        `&pickup=${pickupDate}` +
+        `&dropoff=${dropoffDate}` +
+        `&city=${encodeURIComponent(city)}`
     });
-
-    i++;
   }
 
   return rentals;
 }
-

@@ -8,9 +8,6 @@ import * as ipWhitelistService from "../services/ipWhitelistService";
 import * as ipWhitelistBulkManager from "../utils/ipWhitelistBulkManager";
 import fs from "fs";
 
-/**
- * Get all whitelisted IP addresses
- */
 export async function getWhitelistedIps(
   req: AuthRequest,
   res: Response
@@ -29,9 +26,6 @@ export async function getWhitelistedIps(
   }
 }
 
-/**
- * Add an IP address to the whitelist
- */
 export async function addIpToWhitelist(
   req: AuthRequest,
   res: Response
@@ -44,7 +38,6 @@ export async function addIpToWhitelist(
       return;
     }
     
-    // Validate IP format (basic validation)
     const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
     const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
     
@@ -53,18 +46,16 @@ export async function addIpToWhitelist(
       return;
     }
     
-    // Check if IP already exists
     const existingIp = await prisma.ipWhitelist.findFirst({
       where: { ipAddress },
     });
     
     if (existingIp) {
-      // Update the existing entry instead of creating a new one
       const updatedIp = await prisma.ipWhitelist.update({
         where: { id: existingIp.id },
         data: {
           description: description || existingIp.description,
-          active: true, // Reactivate if it was disabled
+          active: true,
           updatedAt: new Date(),
         },
       });
@@ -76,7 +67,6 @@ export async function addIpToWhitelist(
       return;
     }
     
-    // Create new whitelist entry
     const newIp = await prisma.ipWhitelist.create({
       data: {
         ipAddress,
@@ -95,9 +85,6 @@ export async function addIpToWhitelist(
   }
 }
 
-/**
- * Remove an IP address from the whitelist
- */
 export async function removeIpFromWhitelist(
   req: AuthRequest,
   res: Response
@@ -119,7 +106,6 @@ export async function removeIpFromWhitelist(
       return;
     }
     
-    // Delete the IP from the whitelist
     await prisma.ipWhitelist.delete({
       where: { id },
     });
@@ -133,9 +119,6 @@ export async function removeIpFromWhitelist(
   }
 }
 
-/**
- * Update an IP whitelist entry (activate/deactivate)
- */
 export async function updateIpWhitelistStatus(
   req: AuthRequest,
   res: Response
@@ -158,7 +141,6 @@ export async function updateIpWhitelistStatus(
       return;
     }
     
-    // Update the IP whitelist entry
     const updatedIp = await prisma.ipWhitelist.update({
       where: { id },
       data: {
@@ -178,9 +160,6 @@ export async function updateIpWhitelistStatus(
   }
 }
 
-/**
- * Get the whitelist status (enabled/disabled)
- */
 export async function getWhitelistStatus(
   req: AuthRequest,
   res: Response
@@ -195,9 +174,6 @@ export async function getWhitelistStatus(
   }
 }
 
-/**
- * Bulk add IP addresses to the whitelist
- */
 export async function bulkAddIpsToWhitelist(
   req: AuthRequest,
   res: Response
@@ -222,9 +198,6 @@ export async function bulkAddIpsToWhitelist(
   }
 }
 
-/**
- * Bulk remove IP addresses from the whitelist
- */
 export async function bulkRemoveIpsFromWhitelist(
   req: AuthRequest,
   res: Response
@@ -248,9 +221,6 @@ export async function bulkRemoveIpsFromWhitelist(
   }
 }
 
-/**
- * Bulk update IP whitelist status
- */
 export async function bulkUpdateIpWhitelistStatus(
   req: AuthRequest,
   res: Response
@@ -274,15 +244,11 @@ export async function bulkUpdateIpWhitelistStatus(
   }
 }
 
-/**
- * Import IP addresses from file
- */
 export async function importIpsFromFile(
   req: AuthRequest,
   res: Response
 ): Promise<void> {
   try {
-    // This would typically be handled by a file upload middleware
     if (!req.file) {
       res.status(400).json({ error: "No file uploaded" });
       return;
@@ -300,9 +266,6 @@ export async function importIpsFromFile(
   }
 }
 
-/**
- * Export IP addresses to file
- */
 export async function exportIpsToFile(
   req: AuthRequest,
   res: Response
@@ -313,13 +276,11 @@ export async function exportIpsToFile(
     const success = await ipWhitelistBulkManager.exportIpsToFile(filePath);
     
     if (success) {
-      // Send the file as a download
       res.download(filePath, (err) => {
         if (err) {
           console.error("Error sending file:", err);
         }
         
-        // Delete the file after sending
         fs.unlinkSync(filePath);
       });
     } else {

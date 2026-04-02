@@ -18,6 +18,7 @@ import adminRoutes from "./routes/adminRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
 import systemRoutes from "./routes/systemRoutes";
 import { initializeEmailService } from "./utils/emailService"; // Add email service initialization
+import itineraryRoutes from "./routes/itineraryRoutes";
 
 // Validate environment variables
 validateEnv();
@@ -29,6 +30,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/itinerary", itineraryRoutes);
 
 // Initialize email service
 initializeEmailService();
@@ -45,6 +47,7 @@ app.use(express.static(path.join(__dirname, "../public")));
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/itinerary", itineraryRoutes);
 app.use("/api/ip-whitelist", ipWhitelistRoutes);
 app.use("/api/password-reset", passwordResetRoutes);
 app.use("/api/profile", profileRoutes); // Add profile routes

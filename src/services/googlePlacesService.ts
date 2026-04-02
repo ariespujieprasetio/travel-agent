@@ -1,13 +1,6 @@
-import { google } from "googleapis";
 import { config } from "../config/env";
+import { Client, TravelMode } from "@googlemaps/google-maps-services-js";
 
-// Initialize Google Places API
-const places = google.places({
-  version: "v1",
-  auth: config.google.apiKey,
-});
-
-// Define the fields to request from Google Places API
 const fields = [
   "places.displayName",
   "places.formattedAddress",
@@ -27,7 +20,37 @@ const fields = [
   "places.location"
 ].join(",");
 
-// Define interfaces
+async function searchPlaces(
+  textQuery: string,
+  maxResultCount: number
+): Promise<Place[]> {
+
+  console.log("[PlacesAPI]", textQuery);
+
+  const res = await fetch(
+    "https://places.googleapis.com/v1/places:searchText",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": config.google.apiKey,
+        "X-Goog-FieldMask": fields,
+      },
+      body: JSON.stringify({ textQuery, maxResultCount }),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Google Places API ${res.status}: ${text}`);
+  }
+
+  const data = await res.json();
+  if (!data.places) return [];
+
+  return data.places as Place[];
+}
+
 export interface Location {
   latitude: number;
   longitude: number;
@@ -35,199 +58,196 @@ export interface Location {
 
 export interface DisplayName {
   text: string;
-  languageCode: string;
+  languageCode?: string;
 }
 
 export interface Place {
-  formattedAddress: string;
-  location: Location;
-  rating: number;
-  googleMapsUri: string;
+  formattedAddress?: string;
+  location?: Location;
+  rating?: number;
+  googleMapsUri?: string;
   websiteUri?: string;
-  displayName: DisplayName;
+  displayName?: DisplayName;
   nationalPhoneNumber?: string;
   internationalPhoneNumber?: string;
-  priceLevel?: string;  // Price level for rent
-  priceRange?: string; // Price range
-  fleet?: string;  // Fleet details like car types, etc.
-  contactInfo?: string;  // Contact information
-  driverAvailability?: string;  
+  priceLevel?: string;
+  priceRange?: string;
+  fleet?: string;
+  contactInfo?: string;
+  driverAvailability?: string;
 }
 
-// Haversine formula for calculating distance between coordinates
 export function haversine(
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371; // Radius of Earth in km
-  const toRad = (angle: number): number => (angle * Math.PI) / 180;
+  const R = 6371;
+  const toRad = (v: number) => (v * Math.PI) / 180;
 
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
 
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // Distance in km
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-// Function to find hotels"
-export async function findHotels(city: string, stars: number, nearCBD: boolean): Promise<Place[]> {
-  console.log(`Fetching ${stars} stars hotels in ${city}, requested count: 5, ${nearCBD}`);
+export async function findHotels(
+  city: string,
+  stars: number,
+  nearCBD: boolean
+): Promise<Place[]> {
+
+  let queryCity = city;
 
   if (nearCBD) {
-
-    const cityCBD = city.includes(',') ? city.split(',')[0] : city;
-
-    const cbdAreas = cbdMaps.get(cityCBD.toLocaleLowerCase())
-
-    const cbdArea = cbdAreas?.at(
-      Math.floor(Math.random() * cbdAreas.length)
-    );
-
-    const data = await places.places.searchText({
-      fields: fields,
-      requestBody: {
-        textQuery: `${stars} stars hotel in ${cbdArea}`,
-        maxResultCount: 5,
-      },
-    });
-    const placesData = data.data.places! as Place[];
-    console.log(`Retrieved ${placesData.length} hotels in cbdArea ${cbdArea}`);
-    return placesData;
+    const cityKey = city.includes(",") ? city.split(",")[0] : city;
+    const cbdAreas = cbdMaps.get(cityKey.toLowerCase());
+    if (cbdAreas?.length) {
+      queryCity = cbdAreas[Math.floor(Math.random() * cbdAreas.length)];
+    }
   }
 
-  const data = await places.places.searchText({
-    fields: fields,
-    requestBody: {
-      textQuery: `${stars} stars hotel in ${city}`,
-      maxResultCount: 5,
-    },
-  });
-  const placesData = data.data.places! as Place[];
-  console.log(`Retrieved ${placesData.length} hotels in ${city}`);
-  return placesData;
+  return searchPlaces(`${stars} stars hotel in ${queryCity}`, 5);
 }
 
-// Function to find restaurants
 export async function findRestaurants(
   city: string,
   cuisine: string,
   count: number = 3
 ): Promise<Place[]> {
-  console.log(`Fetching ${cuisine} restaurants in ${city}, requested count: ${count}`);
-  const data = await places.places.searchText({
-    fields: fields,
-    requestBody: {
-      textQuery: `${cuisine} restaurants in ${city}`,
-      maxResultCount: count,
-    },
-  });
-  const placesData = data.data.places! as Place[];
-  console.log(`Retrieved ${placesData.length} ${cuisine} restaurants in ${city}`);
-  return placesData;
+  return searchPlaces(`${cuisine} restaurants in ${city}`, count);
 }
 
-// Function to find nightlife venues
 export async function findNightlife(
   city: string,
   type: string,
   count: number = 3
 ): Promise<Place[]> {
-  console.log(`Fetching ${type} nightlife venues in ${city}, requested count: ${count}`);
-  const data = await places.places.searchText({
-    fields: fields,
-    requestBody: {
-      textQuery: `${type} in ${city}`,
-      maxResultCount: count,
-    },
-  });
-  const placesData = data.data.places! as Place[];
-  console.log(`Retrieved ${placesData.length} ${type} nightlife venues in ${city}`);
-  return placesData;
+  return searchPlaces(`${type} in ${city}`, count);
 }
 
-// Function to find meeting venues
 export async function findMeetingVenues(
   city: string,
   type: string,
   count: number = 3
 ): Promise<Place[]> {
-  console.log(`Fetching ${type} meeting venues in ${city}, requested count: ${count}`);
-  const data = await places.places.searchText({
-    fields: fields,
-    requestBody: {
-      textQuery: `${type} in ${city}`,
-      maxResultCount: count,
-    },
-  });
-  const placesData = data.data.places! as Place[];
-  console.log(`Retrieved ${placesData.length} ${type} meeting venues in ${city}`);
-  return placesData;
+  return searchPlaces(`${type} in ${city}`, count);
 }
 
-// Function to find travel destinations
 export async function findTravelDestinations(
   city: string,
   count: number
 ): Promise<Place[]> {
-  console.log(`Fetching tourist attractions in ${city}, requested count: ${count}`);
-  const data = await places.places.searchText({
-    fields: fields,
-    requestBody: {
-      textQuery: `tourist attractions in ${city}`,
-      maxResultCount: count,
-    },
-  });
-  const placesData = data.data.places! as Place[];
-  console.log(`Retrieved ${placesData.length} tourist attractions in ${city}`);
-  return placesData;
+  return searchPlaces(`tourist attractions in ${city}`, count);
 }
 
-/**
- * Asynchronous function to identify available car rental services in a specified city
- * @param city - The target geographic location for car rental services
- * @param count - Maximum number of results to return
- * @returns Promise resolving to an array of Place objects representing car rental services
- */
 export async function findCarRentalServices(
   city: string,
   count: number
 ): Promise<string> {
-  console.log(`Initiating search for car rental services in ${city}, requested result count: ${count}`);
 
-  const data = await places.places.searchText({
-    fields: fields,
-    requestBody: {
-      textQuery: `car rental services in ${city}`,
-      maxResultCount: count,
-    },
-  });
+  const places = await searchPlaces(`car rental services in ${city}`, count);
 
-  const placesData = data.data.places! as Place[];
-
-  console.log(`Successfully retrieved ${placesData.length} car rental service locations in ${city}`);
-
-  const resultText = placesData.map((place, index) => {
-    return `${index + 1}. ${place.displayName?.text || '-'}\n` +
-           `Alamat: ${place.formattedAddress || '-'}\n` +
-           `Telepon: ${place.nationalPhoneNumber || place.internationalPhoneNumber || '-'}\n` +
-           `Rating: ${place.rating || '-'}\n` +
-           `Website: ${place.websiteUri || '-'}\n` +
-           `Peta Lokasi: ${place.googleMapsUri || '-'}\n`;
-  }).join('\n');
-
-  return `Berikut adalah beberapa layanan rental mobil di ${city}:\n\n${resultText}`;
+  return places
+    .map((p, i) =>
+      `${i + 1}. ${p.displayName?.text || "-"}
+Alamat: ${p.formattedAddress || "-"}
+Telepon: ${p.nationalPhoneNumber || p.internationalPhoneNumber || "-"}
+Rating: ${p.rating || "-"}
+Website: ${p.websiteUri || "-"}
+Peta: ${p.googleMapsUri || "-"}`
+    )
+    .join("\n\n");
 }
 
-import { Client, TravelMode } from "@googlemaps/google-maps-services-js";
+async function findPlacesByRating(
+  city: string,
+  type: string,
+  minRating: number,
+  count: number
+): Promise<Place[]> {
 
-// Define Types
+  const results = await searchPlaces(`${type} in ${city}`, count * 2);
+
+  return results
+    .filter(p => typeof p.rating === "number" && p.rating >= minRating)
+    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+    .slice(0, count);
+}
+
+export async function findTopRatedHotels(
+  city: string,
+  stars: number,
+  count: number = 3
+): Promise<Place[]> {
+  return findPlacesByRating(city, `${stars} stars hotel`, 4.0, count);
+}
+
+export async function findTopRatedRestaurants(
+  city: string,
+  cuisine: string,
+  count: number = 3
+): Promise<Place[]> {
+  return findPlacesByRating(city, `${cuisine} restaurant`, 4.0, count);
+}
+
+export async function findTopRatedMeetingVenues(
+  city: string,
+  type: string,
+  count: number = 3
+): Promise<Place[]> {
+  return findPlacesByRating(city, type, 4.0, count);
+}
+
+export async function findTopRatedAttractions(
+  city: string,
+  count: number = 5
+): Promise<Place[]> {
+  return findPlacesByRating(city, "tourist attraction", 4.0, count);
+}
+
+export async function findLocalEvents(
+  city: string,
+  month?: string,
+  count: number = 5
+): Promise<Place[]> {
+
+  const queries = [
+    `festival in ${city} ${month ?? ""}`,
+    `concert in ${city} ${month ?? ""}`,
+    `music festival in ${city}`,
+    `cultural event in ${city} ${month ?? ""}`,
+    `exhibition in ${city} ${month ?? ""}`
+  ];
+
+  let results: Place[] = [];
+
+  for (const q of queries) {
+    const res = await searchPlaces(q.trim(), count);
+    results = results.concat(res);
+  }
+
+  const filtered = results.filter(p =>
+    p.displayName?.text &&
+    !/wedding|venue|hall|ballroom|resort|hotel/i.test(p.displayName.text)
+  );
+
+  const unique = new Map<string, Place>();
+  for (const p of filtered) {
+    const key = `${p.displayName?.text}-${p.formattedAddress}`;
+    if (!unique.has(key)) unique.set(key, p);
+  }
+
+  return Array.from(unique.values()).slice(0, count);
+}
+
 export interface RouteSegment {
   origin: string;
   destination: string;
@@ -237,201 +257,63 @@ export interface DistanceResult {
   origin: string;
   destination: string;
   distanceText: string;
-  distanceValue: number; // in meters
+  distanceValue: number;
   durationText: string;
-  durationValue: number; // in seconds
+  durationValue: number;
 }
 
-/**
- * Calculate distance between multiple route segments
- * @param route Array of route segments with origin and destination
- * @param mode Travel mode (default: driving)
- * @returns Promise resolving to an array of distance results
- */
 export async function calculateDistance(
   route: RouteSegment[],
   mode: TravelMode = TravelMode.driving
 ): Promise<DistanceResult[]> {
+
   const client = new Client({});
   const results: DistanceResult[] = [];
 
-  console.log(`Calculating distances for ${route.length} route segments using ${mode} mode`);
+  for (const r of route) {
+    const res = await client.distancematrix({
+      params: {
+        origins: [r.origin],
+        destinations: [r.destination],
+        mode,
+        key: config.google.apiKey,
+      },
+      timeout: 3000,
+    });
 
-  try {
-    // Process each segment sequentially
-    for (const { origin, destination } of route) {
-      console.log(`Calculating distance from ${origin} to ${destination}`);
-      
-      const response = await client.distancematrix({
-        params: {
-          origins: [origin],
-          destinations: [destination],
-          mode: mode,
-          key: config.google.apiKey
-        },
-        timeout: 3000, // milliseconds
+    const el = res.data.rows[0].elements[0];
+    if (el.status === "OK") {
+      results.push({
+        origin: r.origin,
+        destination: r.destination,
+        distanceText: el.distance.text,
+        distanceValue: el.distance.value,
+        durationText: el.duration.text,
+        durationValue: el.duration.value,
       });
-
-      // Extract data from response
-      const element = response.data.rows[0].elements[0];
-      
-      if (element.status === 'OK') {
-        results.push({
-          origin,
-          destination,
-          distanceText: element.distance.text,
-          distanceValue: element.distance.value,
-          durationText: element.duration.text,
-          durationValue: element.duration.value
-        });
-        
-        console.log(`Distance: ${element.distance.text}, Duration: ${element.duration.text}`);
-      } else {
-        console.error(`Error calculating distance for segment: ${element.status}`);
-        // Add partial result with error information
-        results.push({
-          origin,
-          destination,
-          distanceText: 'Error',
-          distanceValue: 0,
-          durationText: 'Error',
-          durationValue: 0
-        });
-      }
     }
-    
-    console.log(`Successfully calculated distances for ${results.length} route segments`);
-    return results;
-    
-  } catch (error: any) {
-    console.error(`Error in distance calculation: ${error.message || error}`);
-    if (error.response?.data?.error_message) {
-      console.error(`Google API error: ${error.response.data.error_message}`);
-    }
-    throw error;
   }
+
+  return results;
 }
 
-/**
- * Calculate the total distance and duration for a complete route
- * @param routeSegments Array of route segments
- * @param mode Travel mode
- * @returns Promise resolving to total distance and duration
- */
 export async function calculateTotalRouteDistance(
-  routeSegments: RouteSegment[],
+  route: RouteSegment[],
   mode: TravelMode = TravelMode.driving
-): Promise<{totalDistanceKm: number, totalDurationMinutes: number}> {
-  const segmentResults = await calculateDistance(routeSegments, mode);
-  
-  // Sum up all distance and duration values
-  const totalDistanceMeters = segmentResults.reduce((sum, segment) => sum + segment.distanceValue, 0);
-  const totalDurationSeconds = segmentResults.reduce((sum, segment) => sum + segment.durationValue, 0);
-  
-  // Convert to more readable units
-  const totalDistanceKm = Math.round(totalDistanceMeters / 100) / 10; // Round to 1 decimal place
-  const totalDurationMinutes = Math.round(totalDurationSeconds / 60);
-  
-  console.log(`Total route distance: ${totalDistanceKm} km, duration: ${totalDurationMinutes} minutes`);
-  
-  return { totalDistanceKm, totalDurationMinutes };
+): Promise<{ totalDistanceKm: number; totalDurationMinutes: number }> {
+
+  const r = await calculateDistance(route, mode);
+
+  return {
+    totalDistanceKm: Math.round(r.reduce((s, x) => s + x.distanceValue, 0) / 100) / 10,
+    totalDurationMinutes: Math.round(r.reduce((s, x) => s + x.durationValue, 0) / 60),
+  };
 }
-
-// Example usage:
-/*
-const route = [
-  { origin: "Paris CDG Airport", destination: "31 Av. George V, 75008 Paris, France" },
-  { origin: "31 Av. George V, 75008 Paris, France", destination: "Av. Gustave Eiffel, 75007 Paris, France" },
-  { origin: "Av. Gustave Eiffel, 75007 Paris, France", destination: "Tuileries Garden, 75001 Paris, France" },
-  { origin: "Tuileries Garden, 75001 Paris, France", destination: "Le Confidentiel, 75001 Paris, France" }
-];
-
-// Get detailed results for each segment
-calculateDistance(route).then(results => console.log(results));
-
-// Get total route distance and duration
-calculateTotalRouteDistance(route).then(total => console.log(total));
-*/
-// Helper function to find places by rating
-async function findPlacesByRating(
-  city: string,
-  type: string,
-  minRating: number = 4.0,
-  count: number = 3
-): Promise<Place[]> {
-  const requestCount = count * 2; // Fetch more to filter by rating
-  console.log(`Fetching ${type} in ${city} with min rating ${minRating}, requested count: ${requestCount}`);
-
-  const data = await places.places.searchText({
-    fields: fields,
-    requestBody: {
-      textQuery: `${type} in ${city}`,
-      maxResultCount: requestCount,
-    },
-  });
-
-  let placesData = data.data.places! as Place[];
-  // console.log(`Retrieved ${placesData.length} ${type} in ${city} before filtering`);
-
-  // // Filter by rating and sort by highest rating
-  // placesData = placesData
-  //   .filter(place => place.rating && place.rating >= minRating)
-  //   .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-  //   .slice(0, count);
-
-  // console.log(`Filtered to ${placesData.length} ${type} in ${city} with rating >= ${minRating}`);
-
-  return placesData;
-}
-
-// Function to find top-rated hotels
-export async function findTopRatedHotels(
-  city: string,
-  stars: number,
-  count: number = 3
-): Promise<Place[]> {
-  return findPlacesByRating(city, `${stars} stars hotel`, 4.0, count);
-}
-
-// Function to find top-rated restaurants
-export async function findTopRatedRestaurants(
-  city: string,
-  cuisine: string,
-  count: number = 3
-): Promise<Place[]> {
-  return findPlacesByRating(city, `${cuisine} restaurant`, 4.0, count);
-}
-
-// Function to find top-rated meeting venues
-export async function findTopRatedMeetingVenues(
-  city: string,
-  type: string,
-  count: number = 3
-): Promise<Place[]> {
-  return findPlacesByRating(city, `${type}`, 4.0, count);
-}
-
-// Function to find top-rated attractions
-export async function findTopRatedAttractions(
-  city: string,
-  count: number = 5
-): Promise<Place[]> {
-  return findPlacesByRating(city, "tourist attraction", 4.0, count);
-}
-
-/**
- * Central Business Districts HashMap Implementation
- * 
- * This implementation creates a comprehensive mapping of cities to their
- * respective business districts as extracted from the Wikipedia data.
- * Data is organized by continent and city, facilitating efficient lookups.
- */
 
 interface CityBusinessDistricts {
   [city: string]: string[];
 }
 
-// Main data structure: HashMap mapping cities to their business districts
 const centralBusinessDistricts: CityBusinessDistricts = {
   // Africa
   "Abidjan": ["Le Plateau"],

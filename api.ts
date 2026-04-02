@@ -9,10 +9,8 @@ import {
     FunctionParameters,
 } from "openai/resources";
 
-// Load environment variables from .env file
 dotenv.config();
 
-// Ensure the API key is available
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
     console.error(
@@ -28,10 +26,43 @@ const openai = new OpenAI({
 import { google } from "googleapis";
 import * as fs from "fs";
 import { start } from "repl";
-const places = google.places({
-    version: "v1",
-    auth: process.env.GOOGLE_API_KEY,
-});
+const places = google.places("v1");
+
+async function searchPlaces(
+    textQuery: string,
+    maxResultCount: number
+  ): Promise<Place[]> {
+  
+    const res = await fetch(
+      "https://places.googleapis.com/v1/places:searchText",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": process.env.GOOGLE_API_KEY!,
+          "X-Goog-FieldMask": fields,
+        },
+        body: JSON.stringify({
+          textQuery,
+          maxResultCount,
+        }),
+      }
+    );
+  
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Google Places failed: ${res.status} ${text}`);
+    }
+  
+    const data = await res.json();
+  
+    if (!data.places || data.places.length === 0) {
+      throw new Error("No places found");
+    }
+  
+    return data.places as Place[];
+  }
+  
 
 const fields = [
     "places.displayName",
@@ -40,7 +71,6 @@ const fields = [
     "places.internationalPhoneNumber",
     "places.websiteUri",
     "places.googleMapsUri",
-    // "places.currentOpeningHours",
     "places.dineIn",
     "places.reservable",
     "places.servesLunch",
@@ -64,8 +94,8 @@ function haversine(
     lat2: number,
     lon2: number
 ): number {
-    const R = 6371; // Radius of Earth in km
-    const toRad = (angle: number): number => (angle * Math.PI) / 180; // Convert degrees to radians
+    const R = 6371; 
+    const toRad = (angle: number): number => (angle * Math.PI) / 180; 
 
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
@@ -76,7 +106,7 @@ function haversine(
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c; // Distance in km
+    return R * c; 
 }
 
 interface DisplayName {
@@ -89,7 +119,7 @@ interface Place {
     location: Location;
     rating: number;
     googleMapsUri: string;
-    websiteUri?: string; // Optional, in case some places don’t have a website
+    websiteUri?: string; 
     displayName: DisplayName;
 }
 
@@ -325,7 +355,6 @@ const tools: ChatCompletionTool[] = [
     },
 ];
 
-// Define the system prompt
 const sysprompt = fs.readFileSync('sys-new.txt', 'utf-8')
 
 
@@ -340,12 +369,11 @@ const io = new Server(httpServer);
 
 const maps = new Map<number, ChatCompletionMessageParam[]>();
 
-// Function to add a message to a specific key
 function addMessage(key: number, message: ChatCompletionMessageParam) {
     if (!maps.has(key)) {
-        maps.set(key, []); // Initialize an empty array if the key does not exist
+        maps.set(key, []); 
     }
-    maps.get(key)!.push(message); // Add message to the array
+    maps.get(key)!.push(message); 
 
 }
 
@@ -353,7 +381,7 @@ async function doInitChat(key: number, emit: (topic: string, data: string) => {}
     const history = maps.get(key)!;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o", // Ensure the model name is correct
+        model: "gpt-4o", 
         messages: history,
         tools: tools,
         temperature: 0,
@@ -381,7 +409,6 @@ async function doInitChat(key: number, emit: (topic: string, data: string) => {}
 
 }
 
-// Main conversation loop
 async function doChat(key: number, msg: string, emit: (topic: string, data: string) => {}) {
     if (!maps.has(key)) {
         maps.set(key, [
@@ -391,7 +418,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
     const history = maps.get(key)!;
 
-    // Optional: jika system prompt tidak ditemukan di awal, tambahkan
     if (!history.find(h => h.role === 'system')) {
         history.unshift({ role: 'system', content: sysprompt });
     }
@@ -403,7 +429,7 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
         while (true) {
 
             const completion = await openai.chat.completions.create({
-                model: "gpt-4o", // Ensure the model name is correct
+                model: "gpt-4o", 
                 messages: history,
                 tools: tools,
                 temperature: 0,
@@ -434,7 +460,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
                         emit(`msg-${key}`, `${delta.content}`)
                 } else {
                     console.log(delta)
-                    // Handle function call
                     for (const call of delta.tool_calls) {
                         if (call.function) {
                             if (call.function.name) functionName = call.function.name;
@@ -443,7 +468,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
                                 args += call.function.arguments;
 
-                                //  if '}' in args, then call function
                                 if (args.includes('}')) {
                                     callFunction = true;
                                     const data = JSON.parse(args);
@@ -531,7 +555,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
 
             if (!callFunction) {
-                // const userInput = await promptUser("> ");
                 addMessage(key, { role: "assistant", content: acc });
                 emit(`msg-${key}`, `\n\0`)
 
@@ -551,12 +574,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
             }
 
         }
-
-
-
-
-        // Optionally, add a condition to exit the loop
-        // For example, based on user input or a specific message
     } catch (error) {
         console.error("Error during OpenAI API call:", error);
 
@@ -566,22 +583,15 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
 }
 
-
-
-
-// Serve static files (e.g., the client HTML)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Basic route
 app.get('/', (req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Listen for client connections
 io.on('connection', (socket: Socket) => {
     console.log('A user connected');
 
-    // Listen for chat messages from clients
     socket.on('chat message', (data: string) => {
         const { id, msg } = JSON.parse(data);
 
@@ -600,126 +610,100 @@ io.on('connection', (socket: Socket) => {
 
     });
 
-    // Handle disconnect event
     socket.on('disconnect', () => {
         console.log('User disconnected');
     });
 });
 
-// Start the server
 const PORT = 5600;
 httpServer.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
 
 
+async function find_hotels(
+    city: string,
+    stars: number
+  ): Promise<Place[]> {
+    return searchPlaces(`${stars} star hotel in ${city}`, 5);
+  }
 
-async function find_hotels(city: string, stars: number): Promise<Place[]> {
-    // Call the Google Places API to find hotels in the specified city
-    // with a minimum number of stars
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${stars} stars hotel in ${city}`,
-            maxResultCount: 5,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
+  async function find_restaurants(
+    city: string,
+    cuisine: string,
+    count: number = 3
+  ): Promise<Place[]> {
+    return searchPlaces(`${cuisine} restaurant in ${city}`, count);
+  }
+  
+  async function find_nightlife(
+    city: string,
+    type: string,
+    count: number = 3
+  ): Promise<Place[]> {
+    return searchPlaces(`${type} in ${city}`, count);
+  }
+  
+  async function find_meeting_venues(
+    city: string,
+    type: string,
+    count: number = 3
+  ): Promise<Place[]> {
+    return searchPlaces(`${type} in ${city}`, count);
+  }
 
-async function find_restaurants(city: string, cuisine: string, count: number = 3): Promise<Place[]> {
-    // Call the Google Places API to find restaurants of a specific cuisine in the specified city
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${cuisine} restaurants in ${city}`,
-            maxResultCount: count,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-async function find_nightlife(city: string, type: string, count: number = 3): Promise<Place[]> {
-    // Call the Google Places API to find nightlife venues in the specified city
-    // type can be "bar", "night club", "lounge", etc.
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${type} in ${city}`,
-            maxResultCount: count,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-async function find_meeting_venues(city: string, type: string, count: number = 3): Promise<Place[]> {
-    // Call the Google Places API to find meeting venues in the specified city
-    // type can be "conference center", "meeting room", "co-working space", etc.
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${type} in ${city}`,
-            maxResultCount: count,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-async function find_travel_destinations(city: string, count: number): Promise<Place[]> {
-    // Call the Google Places API to find tourist attractions in the specified city
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `tourist attractions in ${city}`,
-            maxResultCount: count,
-        },
-    });
-    const placesData = data.data.places! as Place[];
-    return placesData;
-}
-
-// Helper function to get places with specific ratings
-async function find_places_by_rating(city: string, type: string, minRating: number = 4.0, count: number = 3): Promise<Place[]> {
-    // Call the Google Places API to find places of a specific type with minimum rating
-    const data = await places.places.searchText({
-        fields: fields,
-        requestBody: {
-            textQuery: `${type} in ${city}`,
-            maxResultCount: count * 2, // Fetch more to filter by rating
-        },
-    });
-
-    let placesData = data.data.places! as Place[];
-
-    // Filter by rating and sort by highest rating
-    placesData = placesData
-        .filter(place => place.rating && place.rating >= minRating)
-        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-        .slice(0, count);
-
-    return placesData;
-}
-
-// Specialized function for finding top-rated hotels
-async function find_top_rated_hotels(city: string, stars: number, count: number = 3): Promise<Place[]> {
-    return find_places_by_rating(city, `${stars} stars hotel`, 4.0, count);
-}
-
-// Specialized function for finding top-rated restaurants by cuisine
-async function find_top_rated_restaurants(city: string, cuisine: string, count: number = 3): Promise<Place[]> {
+  async function find_travel_destinations(
+    city: string,
+    count: number
+  ): Promise<Place[]> {
+    return searchPlaces(`tourist attractions in ${city}`, count);
+  }
+  
+  async function find_places_by_rating(
+    city: string,
+    type: string,
+    minRating: number = 4.0,
+    count: number = 3
+  ): Promise<Place[]> {
+  
+    const placesData = await searchPlaces(
+      `${type} in ${city}`,
+      count * 2 
+    );
+  
+    return placesData
+      .filter(p => typeof p.rating === "number" && p.rating >= minRating)
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+      .slice(0, count);
+  }
+ 
+  async function find_top_rated_hotels(
+    city: string,
+    stars: number,
+    count: number = 3
+  ): Promise<Place[]> {
+    return find_places_by_rating(city, `${stars} star hotel`, 4.0, count);
+  }
+  
+  async function find_top_rated_restaurants(
+    city: string,
+    cuisine: string,
+    count: number = 3
+  ): Promise<Place[]> {
     return find_places_by_rating(city, `${cuisine} restaurant`, 4.0, count);
-}
-
-// Specialized function for finding top-rated meeting venues
-async function find_top_rated_meeting_venues(city: string, type: string, count: number = 3): Promise<Place[]> {
-    return find_places_by_rating(city, `${type}`, 4.0, count);
-}
-
-// Specialized function for finding top-rated tourist attractions
-async function find_top_rated_attractions(city: string, count: number = 5): Promise<Place[]> {
+  }
+  
+  async function find_top_rated_meeting_venues(
+    city: string,
+    type: string,
+    count: number = 3
+  ): Promise<Place[]> {
+    return find_places_by_rating(city, type, 4.0, count);
+  }
+  
+  async function find_top_rated_attractions(
+    city: string,
+    count: number = 5
+  ): Promise<Place[]> {
     return find_places_by_rating(city, "tourist attraction", 4.0, count);
-}
+  }
