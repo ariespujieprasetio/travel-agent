@@ -3,6 +3,9 @@
 import express from "express";
 import * as chatController from "../controllers/chatController";
 import { authenticate } from "../middleware/auth";
+import { Request, Response, NextFunction } from "express";
+import { exportItineraryPDF } from "../controllers/pdfController";
+
 
 const router = express.Router();
 
@@ -34,7 +37,17 @@ router.get("/sessions", (req, res) => chatController.getSessions(req, res));
  * @param {string} sessionId - The ID of the chat session
  * @returns {object} The chat session with messages
  */
+
+router.get("/sessions/:sessionId/pdf-context", (req, res) =>
+  chatController.getPdfContext(req, res)
+);
+
+router.get("/sessions/:sessionId/export-pdf", (req, res) =>
+  exportItineraryPDF(req, res)
+);
+
 router.get("/sessions/:sessionId", (req, res) => chatController.getSession(req, res));
+
 
 /**
  * @route DELETE /api/chat/sessions/:sessionId

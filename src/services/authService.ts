@@ -18,12 +18,10 @@ export async function authenticateWithGoogle(idToken: string) {
     throw new Error("Invalid token payload");
   }
 
-  // Cek apakah user sudah ada
   let user = await prisma.user.findUnique({
     where: { email: payload.email },
   });
 
-  // Kalau belum ada, artinya register
   const isNewUser = !user;
 
   if (!user) {
@@ -31,16 +29,15 @@ export async function authenticateWithGoogle(idToken: string) {
       data: {
         name: payload.name,
         email: payload.email,
-        password: '', // Kosong karena OAuth
+        password: '', 
       },
     });
   }
 
-  // Buat JWT token
   const token = generateToken({
     userId: user.id,
     email: user.email,
-  }, isNewUser); // Kalau baru register, gunakan expire panjang
+  }, isNewUser); 
 
   return {
     user: {
@@ -52,9 +49,7 @@ export async function authenticateWithGoogle(idToken: string) {
   };
 }
 
-// Update loginUser function to accept rememberMe parameter
 export async function loginUser(email: string, password: string, rememberMe: boolean = false) {
-  // Find the user
   const user = await prisma.user.findUnique({
     where: { email },
   });
@@ -63,14 +58,12 @@ export async function loginUser(email: string, password: string, rememberMe: boo
     throw new Error("Invalid credentials");
   }
   
-  // Check password
   const isPasswordValid = await bcrypt.compare(password, user.password);
   
   if (!isPasswordValid) {
     throw new Error("Invalid credentials");
   }
   
-  // Generate token with extended expiration if remember me is checked
   const token = generateToken({
     userId: user.id,
     email: user.email,
@@ -86,9 +79,7 @@ export async function loginUser(email: string, password: string, rememberMe: boo
   };
 }
 
-// Update registerUser function to accept rememberMe parameter
 export async function registerUser(email: string, password: string, name?: string, rememberMe: boolean = false) {
-  // Check if user already exists
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });
@@ -97,10 +88,8 @@ export async function registerUser(email: string, password: string, name?: strin
     throw new Error("User already exists");
   }
   
-  // Hash the password
   const hashedPassword = await bcrypt.hash(password, 10);
   
-  // Create the user
   const user = await prisma.user.create({
     data: {
       email,
@@ -109,7 +98,6 @@ export async function registerUser(email: string, password: string, name?: strin
     },
   });
   
-  // Generate token with extended expiration if remember me is checked
   const token = generateToken({
     userId: user.id,
     email: user.email,
@@ -125,11 +113,6 @@ export async function registerUser(email: string, password: string, name?: strin
   };
 }
 
-// Add these new functions to the file
-
-/**
- * Check if a user is an admin
- */
 export async function isAdmin(userId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -139,9 +122,6 @@ export async function isAdmin(userId: string): Promise<boolean> {
   return !!user?.isAdmin;
 }
 
-/**
- * Update user role
- */
 export async function updateUserRole(userId: string, isAdmin: boolean) {
   return prisma.user.update({
     where: { id: userId },
@@ -155,17 +135,12 @@ export async function updateUserRole(userId: string, isAdmin: boolean) {
   });
 }
 
-/**
- * Create admin user (for initialization)
- */
 export async function createAdminUser(email: string, password: string, name?: string) {
-  // Check if user already exists
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });
   
   if (existingUser) {
-    // Update user to be admin if they exist
     return prisma.user.update({
       where: { id: existingUser.id },
       data: { isAdmin: true },
@@ -178,10 +153,8 @@ export async function createAdminUser(email: string, password: string, name?: st
     });
   }
   
-  // Hash the password
   const hashedPassword = await bcrypt.hash(password, 10);
   
-  // Create the admin user
   const user = await prisma.user.create({
     data: {
       email,

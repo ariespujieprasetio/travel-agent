@@ -9,10 +9,8 @@ import {
     FunctionParameters,
 } from "openai/resources";
 
-// Load environment variables from .env file
 dotenv.config();
 
-// Ensure the API key is available
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
     console.error(
@@ -73,7 +71,6 @@ const fields = [
     "places.internationalPhoneNumber",
     "places.websiteUri",
     "places.googleMapsUri",
-    // "places.currentOpeningHours",
     "places.dineIn",
     "places.reservable",
     "places.servesLunch",
@@ -97,8 +94,8 @@ function haversine(
     lat2: number,
     lon2: number
 ): number {
-    const R = 6371; // Radius of Earth in km
-    const toRad = (angle: number): number => (angle * Math.PI) / 180; // Convert degrees to radians
+    const R = 6371; 
+    const toRad = (angle: number): number => (angle * Math.PI) / 180; 
 
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
@@ -109,7 +106,7 @@ function haversine(
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c; // Distance in km
+    return R * c; 
 }
 
 interface DisplayName {
@@ -122,7 +119,7 @@ interface Place {
     location: Location;
     rating: number;
     googleMapsUri: string;
-    websiteUri?: string; // Optional, in case some places don’t have a website
+    websiteUri?: string; 
     displayName: DisplayName;
 }
 
@@ -358,7 +355,6 @@ const tools: ChatCompletionTool[] = [
     },
 ];
 
-// Define the system prompt
 const sysprompt = fs.readFileSync('sys-new.txt', 'utf-8')
 
 
@@ -373,12 +369,11 @@ const io = new Server(httpServer);
 
 const maps = new Map<number, ChatCompletionMessageParam[]>();
 
-// Function to add a message to a specific key
 function addMessage(key: number, message: ChatCompletionMessageParam) {
     if (!maps.has(key)) {
-        maps.set(key, []); // Initialize an empty array if the key does not exist
+        maps.set(key, []); 
     }
-    maps.get(key)!.push(message); // Add message to the array
+    maps.get(key)!.push(message); 
 
 }
 
@@ -386,7 +381,7 @@ async function doInitChat(key: number, emit: (topic: string, data: string) => {}
     const history = maps.get(key)!;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o", // Ensure the model name is correct
+        model: "gpt-4o", 
         messages: history,
         tools: tools,
         temperature: 0,
@@ -414,7 +409,6 @@ async function doInitChat(key: number, emit: (topic: string, data: string) => {}
 
 }
 
-// Main conversation loop
 async function doChat(key: number, msg: string, emit: (topic: string, data: string) => {}) {
     if (!maps.has(key)) {
         maps.set(key, [
@@ -424,7 +418,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
     const history = maps.get(key)!;
 
-    // Optional: jika system prompt tidak ditemukan di awal, tambahkan
     if (!history.find(h => h.role === 'system')) {
         history.unshift({ role: 'system', content: sysprompt });
     }
@@ -436,7 +429,7 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
         while (true) {
 
             const completion = await openai.chat.completions.create({
-                model: "gpt-4o", // Ensure the model name is correct
+                model: "gpt-4o", 
                 messages: history,
                 tools: tools,
                 temperature: 0,
@@ -467,7 +460,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
                         emit(`msg-${key}`, `${delta.content}`)
                 } else {
                     console.log(delta)
-                    // Handle function call
                     for (const call of delta.tool_calls) {
                         if (call.function) {
                             if (call.function.name) functionName = call.function.name;
@@ -476,7 +468,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
                                 args += call.function.arguments;
 
-                                //  if '}' in args, then call function
                                 if (args.includes('}')) {
                                     callFunction = true;
                                     const data = JSON.parse(args);
@@ -564,7 +555,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
 
             if (!callFunction) {
-                // const userInput = await promptUser("> ");
                 addMessage(key, { role: "assistant", content: acc });
                 emit(`msg-${key}`, `\n\0`)
 
@@ -584,12 +574,6 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
             }
 
         }
-
-
-
-
-        // Optionally, add a condition to exit the loop
-        // For example, based on user input or a specific message
     } catch (error) {
         console.error("Error during OpenAI API call:", error);
 
@@ -599,22 +583,15 @@ async function doChat(key: number, msg: string, emit: (topic: string, data: stri
 
 }
 
-
-
-
-// Serve static files (e.g., the client HTML)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Basic route
 app.get('/', (req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Listen for client connections
 io.on('connection', (socket: Socket) => {
     console.log('A user connected');
 
-    // Listen for chat messages from clients
     socket.on('chat message', (data: string) => {
         const { id, msg } = JSON.parse(data);
 
@@ -633,33 +610,24 @@ io.on('connection', (socket: Socket) => {
 
     });
 
-    // Handle disconnect event
     socket.on('disconnect', () => {
         console.log('User disconnected');
     });
 });
 
-// Start the server
 const PORT = 5600;
 httpServer.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
 
 
-
-/**
- * === HOTELS ===
- */
 async function find_hotels(
     city: string,
     stars: number
   ): Promise<Place[]> {
     return searchPlaces(`${stars} star hotel in ${city}`, 5);
   }
-  
-  /**
-   * === RESTAURANTS ===
-   */
+
   async function find_restaurants(
     city: string,
     cuisine: string,
@@ -668,9 +636,6 @@ async function find_hotels(
     return searchPlaces(`${cuisine} restaurant in ${city}`, count);
   }
   
-  /**
-   * === NIGHTLIFE ===
-   */
   async function find_nightlife(
     city: string,
     type: string,
@@ -679,9 +644,6 @@ async function find_hotels(
     return searchPlaces(`${type} in ${city}`, count);
   }
   
-  /**
-   * === MEETING VENUES ===
-   */
   async function find_meeting_venues(
     city: string,
     type: string,
@@ -689,10 +651,7 @@ async function find_hotels(
   ): Promise<Place[]> {
     return searchPlaces(`${type} in ${city}`, count);
   }
-  
-  /**
-   * === TOURIST ATTRACTIONS ===
-   */
+
   async function find_travel_destinations(
     city: string,
     count: number
@@ -700,9 +659,6 @@ async function find_hotels(
     return searchPlaces(`tourist attractions in ${city}`, count);
   }
   
-  /**
-   * === GENERIC RATING FILTER ===
-   */
   async function find_places_by_rating(
     city: string,
     type: string,
@@ -712,7 +668,7 @@ async function find_hotels(
   
     const placesData = await searchPlaces(
       `${type} in ${city}`,
-      count * 2 // ambil lebih banyak buat difilter
+      count * 2 
     );
   
     return placesData
@@ -720,11 +676,7 @@ async function find_hotels(
       .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
       .slice(0, count);
   }
-  
-  /**
-   * === TOP RATED VARIANTS ===
-   * (tidak langsung call Google, reuse helper di atas)
-   */
+ 
   async function find_top_rated_hotels(
     city: string,
     stars: number,

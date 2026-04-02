@@ -2,9 +2,6 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import * as userService from "../services/userService";
 
-/**
- * Get all users (admin only)
- */
 export async function getAllUsers(
   req: AuthRequest,
   res: Response
@@ -18,9 +15,6 @@ export async function getAllUsers(
   }
 }
 
-/**
- * Get a user by ID (admin only)
- */
 export async function getUserById(
   req: AuthRequest,
   res: Response
@@ -41,9 +35,6 @@ export async function getUserById(
   }
 }
 
-/**
- * Update a user (admin only)
- */
 export async function updateUser(
   req: AuthRequest,
   res: Response
@@ -70,9 +61,6 @@ export async function updateUser(
   }
 }
 
-/**
- * Delete a user (admin only)
- */
 export async function deleteUser(
   req: AuthRequest,
   res: Response
@@ -89,9 +77,6 @@ export async function deleteUser(
   }
 }
 
-/**
- * Change user password (admin or self)
- */
 export async function changePassword(
   req: AuthRequest,
   res: Response

@@ -1,12 +1,7 @@
-// src/controllers/passwordResetController.ts
-
 import { Request, Response } from "express";
 import * as passwordResetService from "../services/passwordResetService";
 import * as emailService from "../utils/emailService";
 
-/**
- * Request a password reset
- */
 export async function requestPasswordReset(req: Request, res: Response): Promise<void> {
   try {
     const { email } = req.body;
@@ -16,10 +11,8 @@ export async function requestPasswordReset(req: Request, res: Response): Promise
       return;
     }
 
-    // Create password reset token and send email
     const success = await passwordResetService.createPasswordResetToken(email);
 
-    // Always return success to prevent email enumeration attacks
     res.status(200).json({ 
       message: "If a user with that email exists, a password reset link has been sent" 
     });
@@ -29,9 +22,6 @@ export async function requestPasswordReset(req: Request, res: Response): Promise
   }
 }
 
-/**
- * Validate a password reset token
- */
 export async function validateResetToken(req: Request, res: Response): Promise<void> {
   try {
     const { email, token } = req.query as { email: string, token: string };
@@ -54,9 +44,6 @@ export async function validateResetToken(req: Request, res: Response): Promise<v
   }
 }
 
-/**
- * Reset password with valid token
- */
 export async function resetPassword(req: Request, res: Response): Promise<void> {
   try {
     const { email, token, newPassword } = req.body;
@@ -66,7 +53,6 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Validate password complexity
     if (newPassword.length < 8) {
       res.status(400).json({ error: "Password must be at least 8 characters long" });
       return;
@@ -75,7 +61,6 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     const success = await passwordResetService.resetPassword(email, token, newPassword);
 
     if (success) {
-      // Send confirmation email
       await emailService.sendPasswordChangedEmail(email);
       res.status(200).json({ message: "Password has been reset successfully" });
     } else {
