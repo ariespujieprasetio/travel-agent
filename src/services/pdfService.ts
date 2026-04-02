@@ -19,11 +19,10 @@ function fixBrokenEncoding(text: string): string {
 }
 
 function formatCurrency(amount: number, currency: string) {
-
   const symbolMap: any = {
     JPY: "¥",
     USD: "$",
-    IDR: "Rp"
+    IDR: "Rp",
   };
 
   return `${symbolMap[currency] ?? ""}${amount.toLocaleString()} ${currency}`;
@@ -42,32 +41,28 @@ function cleanText(text: string): string {
 
 /* ================= COST PARSER ================= */
 
-function parseCost(val?: string | null): { amount: number; currency: string | null } {
-
+function parseCost(val?: string | null): {
+  amount: number;
+  currency: string | null;
+} {
   if (!val) return { amount: 0, currency: null };
 
-  if (/free|included|-/i.test(val))
-    return { amount: 0, currency: null };
+  if (/free|included|-/i.test(val)) return { amount: 0, currency: null };
 
   const amount = parseInt(val.replace(/[^\d]/g, "")) || 0;
 
-  if (/JPY|¥/i.test(val))
-    return { amount, currency: "JPY" };
+  if (/JPY|¥/i.test(val)) return { amount, currency: "JPY" };
 
-  if (/USD|\$/i.test(val))
-    return { amount, currency: "USD" };
+  if (/USD|\$/i.test(val)) return { amount, currency: "USD" };
 
-  if (/IDR|Rp/i.test(val))
-    return { amount, currency: "IDR" };
+  if (/IDR|Rp/i.test(val)) return { amount, currency: "IDR" };
 
   return { amount: 0, currency: null };
 }
 
 /* ================= TABLE DRAW HELPER ================= */
 
-function drawTable(doc, headers, rows, startY, startX = 40)
- {
-
+function drawTable(doc, headers, rows, startY, startX = 40) {
   const columnWidth = (doc.page.width - startX * 2) / headers.length;
   let y = startY;
 
@@ -75,20 +70,15 @@ function drawTable(doc, headers, rows, startY, startX = 40)
 
   // HEADER
   headers.forEach((h, i) => {
-    doc.rect(startX + i * columnWidth, y, columnWidth, 25)
-    .fill("#9933FF")
-    .stroke("#000");
- 
- doc.fillColor("#FFFFFF")
-    .text(
-      h,
-      startX + 5 + i * columnWidth,
-      y + 7,
-      {
-        width: columnWidth - 10,
-        align: "left"
-      }
-    );
+    doc
+      .rect(startX + i * columnWidth, y, columnWidth, 25)
+      .fill("#9933FF")
+      .stroke("#000");
+
+    doc.fillColor("#FFFFFF").text(h, startX + 5 + i * columnWidth, y + 7, {
+      width: columnWidth - 10,
+      align: "left",
+    });
   });
 
   y += 25;
@@ -96,15 +86,13 @@ function drawTable(doc, headers, rows, startY, startX = 40)
 
   // ROWS
   rows.forEach((row) => {
-
     let rowHeight = 0;
 
     // 🔥 HITUNG HEIGHT PALING TINGGI DI ROW
     row.forEach((cell) => {
-
       const cellHeight = doc.heightOfString(cell ?? "-", {
         width: columnWidth - 10,
-        align: "left"
+        align: "left",
       });
 
       rowHeight = Math.max(rowHeight, cellHeight);
@@ -134,7 +122,6 @@ function drawTable(doc, headers, rows, startY, startX = 40)
 }
 
 function buildFullWeather(weather: any): string {
-
   if (!weather?.current) return "-";
 
   const forecast = weather?.forecast_summary
@@ -174,7 +161,6 @@ ${insight}
 /* ================= MAIN PDF FUNCTION ================= */
 
 export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
-
   const itinerary = await prisma.tripItinerary.findMany({
     where: { sessionId },
     orderBy: [{ dayNumber: "asc" }, { time: "asc" }],
@@ -188,8 +174,14 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
 
   const doc = new PDFDocument({ margin: 40, size: "A4", layout: "landscape" });
 
-  doc.registerFont("NotoSans", path.join(process.cwd(), "fonts/NotoSans-Regular.ttf"));
-  doc.registerFont("NotoSans-Bold", path.join(process.cwd(), "fonts/NotoSans-Bold.ttf"));
+  doc.registerFont(
+    "NotoSans",
+    path.join(process.cwd(), "fonts/NotoSans-Regular.ttf"),
+  );
+  doc.registerFont(
+    "NotoSans-Bold",
+    path.join(process.cwd(), "fonts/NotoSans-Bold.ttf"),
+  );
   doc.font("NotoSans");
 
   const buffers: Uint8Array[] = [];
@@ -197,10 +189,11 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
 
   /* ================= HEADER ================= */
   doc.rect(0, 0, doc.page.width, 40).fill("#9933FF");
-  doc.fillColor("#FFFFFF")
-     .font("NotoSans-Bold")
-     .fontSize(18)
-     .text("TRAVEL ITINERARY", 0, 12, { align: "center" });
+  doc
+    .fillColor("#FFFFFF")
+    .font("NotoSans-Bold")
+    .fontSize(18)
+    .text("TRAVEL ITINERARY", 0, 12, { align: "center" });
 
   doc.moveDown(2).fillColor("#000000");
 
@@ -228,19 +221,13 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
   ];
 
   doc
-  .font("NotoSans-Bold")
-  .fontSize(16)
-  .text("Information Detail", tableStartX, doc.y);
+    .font("NotoSans-Bold")
+    .fontSize(16)
+    .text("Information Detail", tableStartX, doc.y);
 
   doc.moveDown(0.5);
 
-  drawTable(
-    doc,
-    ["Item", "Details"],
-    infoRows,
-    doc.y,
-    tableStartX
-  );
+  drawTable(doc, ["Item", "Details"], infoRows, doc.y, tableStartX);
 
   /* ================= GROUP ITINERARY ================= */
 
@@ -252,26 +239,48 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
 
   Object.keys(grouped).forEach((day) => {
     doc.addPage();
-    doc.font("NotoSans-Bold").fontSize(16).text(`Day ${day}`, { underline: true });
+    doc
+      .font("NotoSans-Bold")
+      .fontSize(16)
+      .text(`Day ${day}`, { underline: true });
     doc.moveDown();
 
-    const rows = grouped[Number(day)].map((it) => {
+    console.log(
+      grouped[Number(day)].filter((it) =>
+        it.time?.toLowerCase().includes("time"),
+      ),
+    );
 
-      const detailsParts = [];
+    const rows = grouped[Number(day)]
+      .filter((it) => {
+        const time = it.time?.trim().toLowerCase();
+        const title = it.title?.trim().toLowerCase();
+        const desc = it.description?.toLowerCase() || "";
 
-      if (it.description)
-        detailsParts.push(cleanText(it.description));
+        const isHeader =
+          time === "time" &&
+          title === "activity" &&
+          (desc.includes("note") ||
+            desc.includes("location") ||
+            desc.includes("address"));
 
-      if (it.location)
-        detailsParts.push("Location: " + cleanText(it.location));
+        return !isHeader;
+      })
+      .map((it) => {
+        const detailsParts = [];
 
-      return [
-        it.time || "-",
-        cleanText(it.title),
-        detailsParts.join("\n") || "-",
-        it.price || "-"
-      ];
-    });
+        if (it.description) detailsParts.push(cleanText(it.description));
+
+        if (it.location)
+          detailsParts.push("Location: " + cleanText(it.location));
+
+        return [
+          it.time || "-",
+          cleanText(it.title),
+          detailsParts.join("\n") || "-",
+          it.price || "-",
+        ];
+      });
 
     drawTable(doc, ["Time", "Activity", "Details", "Cost"], rows, doc.y + 10);
   });
@@ -280,10 +289,11 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
 
   doc.addPage();
   doc.rect(0, 0, doc.page.width, 40).fill("#9933FF");
-  doc.fillColor("#FFFFFF")
-     .font("NotoSans-Bold")
-     .fontSize(18)
-     .text("BUDGET SUMMARY", 0, 12, { align: "center" });
+  doc
+    .fillColor("#FFFFFF")
+    .font("NotoSans-Bold")
+    .fontSize(18)
+    .text("BUDGET SUMMARY", 0, 12, { align: "center" });
 
   doc.moveDown(2).fillColor("#000000");
 
@@ -291,48 +301,40 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
   const dayTotals: Record<string, Record<string, number>> = {};
 
   Object.keys(grouped).forEach((day) => {
-
     grouped[Number(day)].forEach((it) => {
-  
       const { amount, currency } = parseCost(it.price);
-  
+
       if (!currency || amount === 0) return; // ⛔ skip FREE
-  
-      currencyTotals[currency] =
-        (currencyTotals[currency] || 0) + amount;
-  
+
+      currencyTotals[currency] = (currencyTotals[currency] || 0) + amount;
+
       if (!dayTotals[day]) dayTotals[day] = {};
-  
-      dayTotals[day][currency] =
-        (dayTotals[day][currency] || 0) + amount;
+
+      dayTotals[day][currency] = (dayTotals[day][currency] || 0) + amount;
     });
-  
   });
 
   const totalDays = Object.keys(grouped).length;
 
-  const accommodation =
-  context?.hotelName
+  const accommodation = context?.hotelName
     ? context.hotelBudget
       ? `${context.hotelName} ($${context.hotelBudget})`
       : context.hotelName
     : "-";
 
   const transportation =
-  context?.flightInfo && context?.groundTransport
-    ? `${context.flightInfo} + ${context.groundTransport}`
-    : context?.groundTransport ||
-      context?.flightInfo ||
-      "-";  
+    context?.flightInfo && context?.groundTransport
+      ? `${context.flightInfo} + ${context.groundTransport}`
+      : context?.groundTransport || context?.flightInfo || "-";
 
-  const totalRows = Object.entries(currencyTotals).map(
-    ([cur, amt]) => formatCurrency(amt, cur)
+  const totalRows = Object.entries(currencyTotals).map(([cur, amt]) =>
+    formatCurrency(amt, cur),
   );
-  
-  const avgRows = Object.entries(currencyTotals).map(
-    ([cur, amt]) => formatCurrency(Math.round(amt / totalDays), cur)
+
+  const avgRows = Object.entries(currencyTotals).map(([cur, amt]) =>
+    formatCurrency(Math.round(amt / totalDays), cur),
   );
-  
+
   const budgetRows = [
     ["Total Estimated Cost", totalRows.join(" / ")],
     ["Daily Average Per Person", avgRows.join(" / ")],
@@ -341,13 +343,11 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
   ];
 
   Object.keys(dayTotals).forEach((day) => {
-
     const totals = Object.entries(dayTotals[day])
       .map(([cur, amt]) => formatCurrency(amt, cur))
       .join(" / ");
-  
+
     budgetRows.push([`Day ${day} Total`, totals]);
-  
   });
 
   drawTable(doc, ["Category", "Amount"], budgetRows, doc.y + 10);
@@ -357,6 +357,4 @@ export async function generateItineraryPDF(sessionId: string): Promise<Buffer> {
   return new Promise((resolve) => {
     doc.on("end", () => resolve(Buffer.concat(buffers)));
   });
-
 }
-
