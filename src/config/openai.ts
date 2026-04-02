@@ -4,12 +4,10 @@ import { ChatCompletionTool } from "openai/resources";
 import * as fs from "fs";
 import path from "path";
 
-// Initialize OpenAI client
 export const openai = new OpenAI({
   apiKey: config.openai.apiKey,
 });
 
-// Define the tools
 export const tools: ChatCompletionTool[] = [
   {
     type: "function",
@@ -113,6 +111,23 @@ export const tools: ChatCompletionTool[] = [
           count: { type: "number" }
         },
         required: ["city", "count"],
+        additionalProperties: false
+      }
+    }
+  },
+
+  {
+    type: "function",
+    function: {
+      name: "find_local_events",
+      description: "Find major local event venues and festival locations in a city",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string" },
+          count: { type: "number", default: 5 }
+        },
+        required: ["city"],
         additionalProperties: false
       }
     }
@@ -275,7 +290,6 @@ export const tools: ChatCompletionTool[] = [
   },
 ];
 
-// System prompt loader
 export function getSystemPrompt(): string {
   try {
     const content = fs.readFileSync(path.join(process.cwd(), 'sys-new.txt'), 'utf-8');

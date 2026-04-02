@@ -1,12 +1,7 @@
-// src/controllers/systemController.ts
-
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import * as systemService from "../services/systemService";
 
-/**
- * Get system health information
- */
 export async function getSystemHealth(
   req: AuthRequest,
   res: Response
@@ -20,9 +15,6 @@ export async function getSystemHealth(
   }
 }
 
-/**
- * Get application configuration
- */
 export async function getSystemConfig(
   req: AuthRequest,
   res: Response
@@ -36,9 +28,6 @@ export async function getSystemConfig(
   }
 }
 
-/**
- * Update application configuration
- */
 export async function updateSystemConfig(
   req: AuthRequest,
   res: Response
@@ -59,9 +48,6 @@ export async function updateSystemConfig(
   }
 }
 
-/**
- * Run database maintenance
- */
 export async function runDatabaseMaintenance(
   req: AuthRequest,
   res: Response
@@ -75,9 +61,6 @@ export async function runDatabaseMaintenance(
   }
 }
 
-/**
- * Clear expired sessions and logs
- */
 export async function clearExpiredData(
   req: AuthRequest,
   res: Response
@@ -91,9 +74,6 @@ export async function clearExpiredData(
   }
 }
 
-/**
- * Get system logs
- */
 export async function getSystemLogs(
   req: AuthRequest,
   res: Response
